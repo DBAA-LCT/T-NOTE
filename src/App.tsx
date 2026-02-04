@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Layout, message } from 'antd';
 import { Note, Page } from './types';
 import Editor from './components/Editor';
 import Sidebar from './components/Sidebar';
@@ -70,7 +71,7 @@ function App() {
     if (currentFilePath) {
       // 如果有当前文件路径，直接保存
       await window.electronAPI.saveNoteToPath(currentFilePath, JSON.stringify(note, null, 2));
-      alert('保存成功！');
+      message.success('保存成功！');
     } else {
       // 如果没有路径，执行另存为
       saveAsNote();
@@ -81,7 +82,7 @@ function App() {
     const filePath = await window.electronAPI.saveNote(JSON.stringify(note, null, 2));
     if (filePath) {
       setCurrentFilePath(filePath);
-      alert('保存成功！');
+      message.success('保存成功！');
     }
   };
 
@@ -92,6 +93,7 @@ function App() {
       setNote(loadedNote);
       setCurrentPageId(loadedNote.pages[0]?.id || null);
       setCurrentFilePath(result.filePath);
+      message.success('笔记已打开！');
     }
   };
 
@@ -100,7 +102,7 @@ function App() {
     : note.pages;
 
   return (
-    <div className="app">
+    <Layout className="app">
       <Sidebar
         pages={filteredPages}
         currentPageId={currentPageId}
@@ -112,12 +114,14 @@ function App() {
         onOpen={openNote}
         searchTag={searchTag}
         onSearchTagChange={setSearchTag}
+        noteName={note.name}
+        onUpdateNoteName={(name) => setNote(prev => ({ ...prev, name }))}
       />
       <Editor
         page={currentPage}
         onUpdatePage={(updates) => currentPage && updatePage(currentPage.id, updates)}
       />
-    </div>
+    </Layout>
   );
 }
 

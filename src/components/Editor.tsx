@@ -1,7 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { Layout, Input, Tag, Space, Button, Typography, Empty } from 'antd';
+import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Page } from '../types';
+
+const { Content } = Layout;
+const { Title } = Typography;
 
 interface EditorProps {
   page?: Page;
@@ -59,7 +64,20 @@ export default function Editor({ page, onUpdatePage }: EditorProps) {
   }), []);
 
   if (!page) {
-    return <div className="editor-empty">请选择或创建一个页面</div>;
+    return (
+      <Content style={{ 
+        padding: '48px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#fafafa'
+      }}>
+        <Empty 
+          description="请选择或创建一个页面"
+          style={{ fontSize: 16 }}
+        />
+      </Content>
+    );
   }
 
   const addTag = () => {
@@ -74,45 +92,84 @@ export default function Editor({ page, onUpdatePage }: EditorProps) {
   };
 
   return (
-    <div className="editor">
-      <div className="editor-header">
-        <input
-          type="text"
+    <Content style={{ 
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      background: '#fff'
+    }}>
+      <div style={{ 
+        padding: '24px 32px',
+        borderBottom: '1px solid #f0f0f0',
+        background: '#fafafa'
+      }}>
+        <Input
           value={page.title}
           onChange={(e) => onUpdatePage({ title: e.target.value })}
-          className="title-input"
+          placeholder="输入页面标题..."
+          bordered={false}
+          style={{ 
+            fontSize: 24,
+            fontWeight: 600,
+            marginBottom: 16,
+            padding: 0
+          }}
         />
         
-        <div className="tags-section">
-          <div className="tags">
-            {page.tags.map(tag => (
-              <span key={tag} className="tag">
-                {tag}
-                <button onClick={() => removeTag(tag)}>×</button>
-              </span>
-            ))}
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <div>
+            <Space size={[8, 8]} wrap>
+              {page.tags.map(tag => (
+                <Tag 
+                  key={tag} 
+                  color="blue"
+                  closable
+                  onClose={() => removeTag(tag)}
+                  style={{ fontSize: 13, padding: '4px 8px' }}
+                >
+                  {tag}
+                </Tag>
+              ))}
+            </Space>
           </div>
-          <div className="tag-input-group">
-            <input
-              type="text"
+          
+          <Space.Compact style={{ maxWidth: 300 }}>
+            <Input
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addTag()}
+              onPressEnter={addTag}
               placeholder="添加标签..."
+              size="small"
             />
-            <button onClick={addTag}>添加</button>
-          </div>
-        </div>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />} 
+              onClick={addTag}
+              size="small"
+            >
+              添加
+            </Button>
+          </Space.Compact>
+        </Space>
       </div>
 
-      <ReactQuill
-        ref={quillRef}
-        theme="snow"
-        value={page.content}
-        onChange={(content) => onUpdatePage({ content })}
-        modules={modules}
-        className="quill-editor"
-      />
-    </div>
+      <div style={{ 
+        flex: 1,
+        overflow: 'auto',
+        padding: '24px 32px'
+      }}>
+        <ReactQuill
+          ref={quillRef}
+          theme="snow"
+          value={page.content}
+          onChange={(content) => onUpdatePage({ content })}
+          modules={modules}
+          style={{ 
+            height: 'calc(100% - 42px)',
+            border: 'none'
+          }}
+        />
+      </div>
+    </Content>
   );
 }
