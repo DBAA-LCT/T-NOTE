@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Layout, message } from 'antd';
 import { Note, Page } from './types';
-import Editor from './components/Editor';
-import Sidebar from './components/Sidebar';
+import Editor, { EditorRef } from './components/Editor';
+import IconBar, { IconBarTab } from './components/IconBar';
+import PagesPanel from './components/PagesPanel';
+import SearchPanel from './components/SearchPanel';
+import TodoPanel from './components/TodoPanel';
+import BookmarkPanel from './components/BookmarkPanel';
+import TopBar from './components/TopBar';
 import './App.css';
 
 function App() {
@@ -16,10 +21,12 @@ function App() {
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [searchTag, setSearchTag] = useState<string>('');
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<IconBarTab>('pages');
+  const editorRef = useRef<EditorRef>(null);
 
   const currentPage = note.pages.find(p => p.id === currentPageId);
 
-  // Ctrl+S 快捷键保存
+  // Ctrl+S 快捷键保存和菜单栏事件监听
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') {
@@ -28,7 +35,17 @@ function App() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // 监听菜单栏事件（仅在 Electron 环境中）
+    if (window.electronAPI) {
+      window.electronAPI.onMenuOpen(openNote);
+      window.electronAPI.onMenuSave(saveNote);
+      window.electronAPI.onMenuSaveAs(saveAsNote);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [note, currentFilePath]);
 
   const addPage = () => {
@@ -67,6 +84,58 @@ function App() {
     if (currentPageId === pageId) setCurrentPageId(null);
   };
 
+  const deleteBookmark = (pageId: string, bookmarkId: string) => {
+    setNote(prev => ({
+      ...prev,
+      pages: prev.pages.map(p => 
+        p.id === pageId 
+          ? { ...p, bookmarks: p.bookmarks?.filter(b => b.id !== bookmarkId), updatedAt: Date.now() }
+          : p
+      ),
+      updatedAt: Date.now()
+    }));
+    message.success('书签已删除');
+  };
+
+  const updateBookmark = (pageId: string, bookmarkId: string, updates: Partial<any>) => {
+    setNote(prev => ({
+      ...prev,
+      pages: prev.pages.map(p => 
+        p.id === pageId 
+          ? { 
+              ...p, 
+              bookmarks: p.bookmarks?.map(b => 
+                b.id === bookmarkId ? { ...b, ...updates } : b
+              ),
+              updatedAt: Date.now() 
+            }
+          : p
+      ),
+      updatedAt: Date.now()
+    }));
+  };
+
+  const jumpToBookmark = (pageId: string, position: number, length: number) => {
+    // 查找书签ID
+    const page = note.pages.find(p => p.id === pageId);
+    if (!page) return;
+    
+    const bookmark = page.bookmarks?.find(b => b.position === position && b.length === length);
+    if (!bookmark) return;
+
+    // 如果需要切换页面，先切换
+    if (currentPageId !== pageId) {
+      setCurrentPageId(pageId);
+      // 等待页面切换完成后再跳转
+      setTimeout(() => {
+        editorRef.current?.jumpToBookmark(bookmark.id);
+      }, 200);
+    } else {
+      // 同一页面直接跳转
+      editorRef.current?.jumpToBookmark(bookmark.id);
+    }
+  };
+
   const saveNote = async () => {
     if (currentFilePath) {
       // 如果有当前文件路径，直接保存
@@ -97,30 +166,65 @@ function App() {
     }
   };
 
-  const filteredPages = searchTag
-    ? note.pages.filter(p => p.tags.some(t => t.includes(searchTag)))
-    : note.pages;
+  const renderSidePanel = () => {
+    switch (activeTab) {
+      case 'pages':
+        return (
+          <PagesPanel
+            pages={note.pages}
+            currentPageId={currentPageId}
+            onSelectPage={setCurrentPageId}
+            onAddPage={addPage}
+            onDeletePage={deletePage}
+          />
+        );
+      case 'search':
+        return (
+          <SearchPanel
+            pages={note.pages}
+            currentPageId={currentPageId}
+            onSelectPage={setCurrentPageId}
+            searchTag={searchTag}
+            onSearchTagChange={setSearchTag}
+          />
+        );
+      case 'todo':
+        return <TodoPanel />;
+      case 'bookmarks':
+        return (
+          <BookmarkPanel
+            pages={note.pages}
+            currentPageId={currentPageId}
+            onSelectPage={setCurrentPageId}
+            onJumpToBookmark={jumpToBookmark}
+            onDeleteBookmark={deleteBookmark}
+            onUpdateBookmark={updateBookmark}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <Layout className="app">
-      <Sidebar
-        pages={filteredPages}
-        currentPageId={currentPageId}
-        onSelectPage={setCurrentPageId}
-        onAddPage={addPage}
-        onDeletePage={deletePage}
-        onSave={saveNote}
-        onSaveAs={saveAsNote}
-        onOpen={openNote}
-        searchTag={searchTag}
-        onSearchTagChange={setSearchTag}
-        noteName={note.name}
-        onUpdateNoteName={(name) => setNote(prev => ({ ...prev, name }))}
-      />
-      <Editor
-        page={currentPage}
-        onUpdatePage={(updates) => currentPage && updatePage(currentPage.id, updates)}
-      />
+      <IconBar activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      {activeTab && renderSidePanel()}
+      
+      <Layout style={{ display: 'flex', flexDirection: 'column' }}>
+        <TopBar
+          noteName={note.name}
+          onSave={saveNote}
+          onSaveAs={saveAsNote}
+          onOpen={openNote}
+        />
+        <Editor
+          ref={editorRef}
+          page={currentPage}
+          onUpdatePage={(updates) => currentPage && updatePage(currentPage.id, updates)}
+        />
+      </Layout>
     </Layout>
   );
 }
