@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Layout, message } from 'antd';
 import { Note, Page } from './types';
 import Editor, { EditorRef } from './components/Editor';
@@ -11,22 +11,65 @@ import TopBar from './components/TopBar';
 import './App.css';
 
 function App() {
-  const [note, setNote] = useState<Note>({
-    id: crypto.randomUUID(),
-    name: '新笔记',
-    pages: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  });
+  const [note, setNote] = useState<Note | null>(null);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [searchTag, setSearchTag] = useState<string>('');
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<IconBarTab>('pages');
+  const [activeTab, setActiveTab] = useState<IconBarTab>(null);
   const editorRef = useRef<EditorRef>(null);
 
-  const currentPage = note.pages.find(p => p.id === currentPageId);
+  // 使用 ref 来保存最新的 note 和 currentFilePath
+  const noteRef = useRef(note);
+  const currentFilePathRef = useRef(currentFilePath);
 
-  // Ctrl+S 快捷键保存和菜单栏事件监听
+  useEffect(() => {
+    noteRef.current = note;
+    currentFilePathRef.current = currentFilePath;
+  }, [note, currentFilePath]);
+
+  const currentPage = note?.pages.find(p => p.id === currentPageId);
+
+  const saveNote = useCallback(async () => {
+    const currentNote = noteRef.current;
+    const currentPath = currentFilePathRef.current;
+    
+    if (!currentNote) return;
+    if (currentPath) {
+      // 如果有当前文件路径，直接保存
+      await window.electronAPI.saveNoteToPath(currentPath, JSON.stringify(currentNote, null, 2));
+      message.success('保存成功！');
+    } else {
+      // 如果没有路径，执行另存为，使用笔记名作为默认文件名
+      const filePath = await window.electronAPI.saveNote(JSON.stringify(currentNote, null, 2), currentNote.name);
+      if (filePath) {
+        setCurrentFilePath(filePath);
+        message.success('保存成功！');
+      }
+    }
+  }, []);
+
+  const saveAsNote = useCallback(async () => {
+    const currentNote = noteRef.current;
+    if (!currentNote) return;
+    const filePath = await window.electronAPI.saveNote(JSON.stringify(currentNote, null, 2), currentNote.name);
+    if (filePath) {
+      setCurrentFilePath(filePath);
+      message.success('保存成功！');
+    }
+  }, []);
+
+  const openNote = useCallback(async () => {
+    const result = await window.electronAPI.openNote();
+    if (result) {
+      const loadedNote = JSON.parse(result.content);
+      setNote(loadedNote);
+      setCurrentPageId(loadedNote.pages[0]?.id || null);
+      setCurrentFilePath(result.filePath);
+      message.success('笔记已打开！');
+    }
+  }, []);
+
+  // Ctrl+S 快捷键保存
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === 's') {
@@ -36,19 +79,28 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // 监听菜单栏事件（仅在 Electron 环境中）
-    if (window.electronAPI) {
-      window.electronAPI.onMenuOpen(openNote);
-      window.electronAPI.onMenuSave(saveNote);
-      window.electronAPI.onMenuSaveAs(saveAsNote);
-    }
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [note, currentFilePath]);
+  }, [saveNote]);
+
+  // 菜单栏事件监听 - 只在组件挂载时注册一次
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    const removeMenuOpen = window.electronAPI.onMenuOpen(openNote);
+    const removeMenuSave = window.electronAPI.onMenuSave(saveNote);
+    const removeMenuSaveAs = window.electronAPI.onMenuSaveAs(saveAsNote);
+
+    return () => {
+      removeMenuOpen();
+      removeMenuSave();
+      removeMenuSaveAs();
+    };
+  }, [openNote, saveNote, saveAsNote]);
 
   const addPage = () => {
+    if (!note) return;
     const newPage: Page = {
       id: crypto.randomUUID(),
       title: '新页面',
@@ -57,35 +109,38 @@ function App() {
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    setNote(prev => ({
+    setNote(prev => prev ? ({
       ...prev,
       pages: [...prev.pages, newPage],
       updatedAt: Date.now()
-    }));
+    }) : null);
     setCurrentPageId(newPage.id);
   };
 
   const updatePage = (pageId: string, updates: Partial<Page>) => {
-    setNote(prev => ({
+    if (!note) return;
+    setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.map(p => 
         p.id === pageId ? { ...p, ...updates, updatedAt: Date.now() } : p
       ),
       updatedAt: Date.now()
-    }));
+    }) : null);
   };
 
   const deletePage = (pageId: string) => {
-    setNote(prev => ({
+    if (!note) return;
+    setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.filter(p => p.id !== pageId),
       updatedAt: Date.now()
-    }));
+    }) : null);
     if (currentPageId === pageId) setCurrentPageId(null);
   };
 
   const deleteBookmark = (pageId: string, bookmarkId: string) => {
-    setNote(prev => ({
+    if (!note) return;
+    setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.map(p => 
         p.id === pageId 
@@ -93,12 +148,13 @@ function App() {
           : p
       ),
       updatedAt: Date.now()
-    }));
+    }) : null);
     message.success('书签已删除');
   };
 
   const updateBookmark = (pageId: string, bookmarkId: string, updates: Partial<any>) => {
-    setNote(prev => ({
+    if (!note) return;
+    setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.map(p => 
         p.id === pageId 
@@ -112,10 +168,11 @@ function App() {
           : p
       ),
       updatedAt: Date.now()
-    }));
+    }) : null);
   };
 
   const jumpToBookmark = (pageId: string, position: number, length: number) => {
+    if (!note) return;
     // 查找书签ID
     const page = note.pages.find(p => p.id === pageId);
     if (!page) return;
@@ -136,37 +193,33 @@ function App() {
     }
   };
 
-  const saveNote = async () => {
-    if (currentFilePath) {
-      // 如果有当前文件路径，直接保存
-      await window.electronAPI.saveNoteToPath(currentFilePath, JSON.stringify(note, null, 2));
-      message.success('保存成功！');
-    } else {
-      // 如果没有路径，执行另存为
-      saveAsNote();
-    }
+  const createNewNote = () => {
+    // 直接创建一个新的空笔记
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      name: '新建笔记',
+      pages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    setNote(newNote);
+    setCurrentPageId(null);
+    setCurrentFilePath(null); // 清空文件路径，保存时会提示选择位置
+    message.success('已创建新笔记！');
   };
 
-  const saveAsNote = async () => {
-    const filePath = await window.electronAPI.saveNote(JSON.stringify(note, null, 2));
-    if (filePath) {
-      setCurrentFilePath(filePath);
-      message.success('保存成功！');
-    }
-  };
-
-  const openNote = async () => {
-    const result = await window.electronAPI.openNote();
-    if (result) {
-      const loadedNote = JSON.parse(result.content);
-      setNote(loadedNote);
-      setCurrentPageId(loadedNote.pages[0]?.id || null);
-      setCurrentFilePath(result.filePath);
-      message.success('笔记已打开！');
-    }
+  const updateNoteName = (name: string) => {
+    if (!note) return;
+    setNote(prev => prev ? ({
+      ...prev,
+      name,
+      updatedAt: Date.now()
+    }) : null);
   };
 
   const renderSidePanel = () => {
+    if (!note) return null;
     switch (activeTab) {
       case 'pages':
         return (
@@ -207,23 +260,30 @@ function App() {
   };
 
   return (
-    <Layout className="app">
-      <IconBar activeTab={activeTab} onTabChange={setActiveTab} />
+    <Layout className="app" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <TopBar
+        noteName={note?.name || '新建笔记'}
+        hasNote={note !== null}
+        onSave={saveNote}
+        onSaveAs={saveAsNote}
+        onOpen={openNote}
+        onCreateNew={createNewNote}
+        onUpdateNoteName={updateNoteName}
+      />
       
-      {activeTab && renderSidePanel()}
-      
-      <Layout style={{ display: 'flex', flexDirection: 'column' }}>
-        <TopBar
-          noteName={note.name}
-          onSave={saveNote}
-          onSaveAs={saveAsNote}
-          onOpen={openNote}
-        />
-        <Editor
-          ref={editorRef}
-          page={currentPage}
-          onUpdatePage={(updates) => currentPage && updatePage(currentPage.id, updates)}
-        />
+      <Layout style={{ flex: 1, overflow: 'hidden' }}>
+        <IconBar activeTab={activeTab} onTabChange={setActiveTab} />
+        
+        {activeTab && renderSidePanel()}
+        
+        <Layout style={{ display: 'flex', flexDirection: 'column' }}>
+          <Editor
+            key={currentPage?.id || 'no-page'}
+            ref={editorRef}
+            page={currentPage}
+            onUpdatePage={(updates) => currentPage && updatePage(currentPage.id, updates)}
+          />
+        </Layout>
       </Layout>
     </Layout>
   );
