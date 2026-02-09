@@ -124,7 +124,7 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, './renderer/index.html'));
   }
 }
 
@@ -141,16 +141,69 @@ ipcMain.handle('save-note-to-path', async (_, filePath: string, noteData: string
 });
 
 // 保存笔记（另存为）
-ipcMain.handle('save-note', async (_, noteData: string) => {
-  const { filePath } = await dialog.showSaveDialog({
-    filters: [{ name: 'Note Files', extensions: ['note'] }]
+ipcMain.handle('save-note', async (_, noteData: string, defaultName?: string) => {
+  // 先确定一个不重复的默认文件名
+  let baseName = defaultName || '新建笔记';
+  let defaultPath = `${baseName}.note`;
+  
+  // 如果用户没有指定目录，使用文档目录
+  const documentsPath = app.getPath('documents');
+  let fullPath = path.join(documentsPath, defaultPath);
+  
+  // 检查文件是否存在，如果存在则添加序号
+  let counter = 1;
+  try {
+    await fs.access(fullPath);
+    // 文件已存在，查找可用的序号
+    while (true) {
+      defaultPath = `${baseName}(${counter}).note`;
+      fullPath = path.join(documentsPath, defaultPath);
+      try {
+        await fs.access(fullPath);
+        counter++;
+      } catch {
+        // 文件不存在，可以使用这个名字
+        break;
+      }
+    }
+  } catch {
+    // 文件不存在，使用原始名称
+  }
+  
+  const result = await dialog.showSaveDialog({
+    filters: [{ name: 'Note Files', extensions: ['note'] }],
+    defaultPath: fullPath
   });
   
-  if (filePath) {
-    await fs.writeFile(filePath, noteData, 'utf-8');
-    return filePath;
+  if (result.canceled || !result.filePath) {
+    return null;
   }
-  return null;
+  
+  // 用户可能修改了文件名，再次检查是否存在
+  let finalPath = result.filePath;
+  try {
+    await fs.access(finalPath);
+    // 文件已存在，自动添加序号
+    const dir = path.dirname(finalPath);
+    const ext = path.extname(finalPath);
+    const fileName = path.basename(finalPath, ext);
+    
+    counter = 1;
+    while (true) {
+      finalPath = path.join(dir, `${fileName}(${counter})${ext}`);
+      try {
+        await fs.access(finalPath);
+        counter++;
+      } catch {
+        break;
+      }
+    }
+  } catch {
+    // 文件不存在，直接使用
+  }
+  
+  await fs.writeFile(finalPath, noteData, 'utf-8');
+  return finalPath;
 });
 
 // 打开笔记
@@ -165,4 +218,32 @@ ipcMain.handle('open-note', async () => {
     return { filePath: filePaths[0], content };
   }
   return null;
+});
+
+// 重命名文件
+ipcMain.handle('rename-file', async (_, oldPath: string, newName: string) => {
+  try {
+    const dir = path.dirname(oldPath);
+    const ext = path.extname(oldPath);
+    const newPath = path.join(dir, `${newName}${ext}`);
+    
+    // 如果新旧路径相同，不需要重命名
+    if (oldPath === newPath) {
+      return oldPath;
+    }
+    
+    // 检查新文件名是否已存在
+    try {
+      await fs.access(newPath);
+      // 文件已存在，返回 null 表示失败
+      return null;
+    } catch {
+      // 文件不存在，可以重命名
+      await fs.rename(oldPath, newPath);
+      return newPath;
+    }
+  } catch (error) {
+    console.error('重命名文件失败:', error);
+    return null;
+  }
 });

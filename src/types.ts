@@ -1,3 +1,18 @@
+export interface TodoItem {
+  id: string;
+  title: string;
+  description?: string;
+  completed: boolean;
+  priority: 'low' | 'medium' | 'high';
+  category?: string;
+  dueDate?: number;
+  linkedPageId?: string; // 关联的页面ID
+  linkedPosition?: number; // 关联的位置
+  linkedLength?: number; // 关联的长度
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Bookmark {
   id: string;
   name: string;
@@ -14,6 +29,7 @@ export interface Page {
   tags: string[];
   bookmarks?: Bookmark[]; // 书签列表
   markerPosition?: number; // 定位器位置（每页只有一个）
+  scrollPosition?: number; // 滚动位置
   createdAt: number;
   updatedAt: number;
 }
@@ -22,6 +38,7 @@ export interface Note {
   id: string;
   name: string;
   pages: Page[];
+  todos?: TodoItem[]; // TODO列表
   createdAt: number;
   updatedAt: number;
 }
@@ -29,9 +46,10 @@ export interface Note {
 declare global {
   interface Window {
     electronAPI: {
-      saveNote: (noteData: string) => Promise<string | null>;
+      saveNote: (noteData: string, defaultName?: string) => Promise<string | null>;
       saveNoteToPath: (filePath: string, noteData: string) => Promise<boolean>;
       openNote: () => Promise<{ filePath: string; content: string } | null>;
+      renameFile: (oldPath: string, newName: string) => Promise<string | null>;
       onMenuOpen: (callback: () => void) => void;
       onMenuSave: (callback: () => void) => void;
       onMenuSaveAs: (callback: () => void) => void;

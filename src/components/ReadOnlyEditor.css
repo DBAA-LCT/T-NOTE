@@ -1,0 +1,109 @@
+.readonly-content {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+.readonly-content h1 {
+  font-size: 2em;
+  font-weight: 600;
+  margin: 0.67em 0;
+  color: #1a1a1a;
+}
+
+.readonly-content h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 0.75em 0;
+  color: #1a1a1a;
+}
+
+.readonly-content h3 {
+  font-size: 1.17em;
+  font-weight: 600;
+  margin: 0.83em 0;
+  color: #1a1a1a;
+}
+
+.readonly-content p {
+  margin: 1em 0;
+}
+
+.readonly-content ul,
+.readonly-content ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.readonly-content li {
+  margin: 0.5em 0;
+}
+
+.readonly-content strong {
+  font-weight: 600;
+}
+
+.readonly-content em {
+  font-style: italic;
+}
+
+.readonly-content u {
+  text-decoration: underline;
+}
+
+.readonly-content s {
+  text-decoration: line-through;
+}
+
+.readonly-content a {
+  color: #1677ff;
+  text-decoration: none;
+}
+
+.readonly-content a:hover {
+  text-decoration: underline;
+}
+
+.readonly-content code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+}
+
+.readonly-content pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.readonly-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.readonly-content blockquote {
+  border-left: 4px solid #e0e0e0;
+  padding-left: 16px;
+  margin: 1em 0;
+  color: #666;
+}
+
+.readonly-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em 0;
+}
+
+.readonly-content .ql-bookmark {
+  background: #fff3cd;
+  border-bottom: 2px solid #ffc107;
+  padding: 2px 4px;
+  cursor: help;
+}

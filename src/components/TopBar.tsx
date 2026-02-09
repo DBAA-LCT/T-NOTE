@@ -1,5 +1,5 @@
-import { Button, Typography, Input } from 'antd';
-import { FileTextOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Typography, Input, Space, Tag } from 'antd';
+import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 
 const { Title } = Typography;
@@ -7,6 +7,7 @@ const { Title } = Typography;
 interface TopBarProps {
   noteName: string;
   hasNote: boolean;
+  hasUnsavedChanges: boolean;
   onSave: () => void;
   onSaveAs: () => void;
   onOpen: () => void;
@@ -14,7 +15,16 @@ interface TopBarProps {
   onUpdateNoteName: (name: string) => void;
 }
 
-export default function TopBar({ noteName, hasNote, onSave, onSaveAs, onOpen, onCreateNew, onUpdateNoteName }: TopBarProps) {
+export default function TopBar({ 
+  noteName, 
+  hasNote, 
+  hasUnsavedChanges,
+  onSave, 
+  onSaveAs, 
+  onOpen, 
+  onCreateNew, 
+  onUpdateNoteName 
+}: TopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(noteName);
 
@@ -44,56 +54,74 @@ export default function TopBar({ noteName, hasNote, onSave, onSaveAs, onOpen, on
 
   return (
     <div style={{ 
-      height: 60,
+      height: 48,
       background: '#fff',
-      borderBottom: '2px solid #e8e8e8',
+      borderBottom: '1px solid #e8e8e8',
       display: 'flex',
       alignItems: 'center',
-      padding: '0 24px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+      justifyContent: 'space-between',
+      padding: '0 20px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
     }}>
-      {!hasNote ? (
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          size="large"
-          onClick={onCreateNew}
-        >
-          新建笔记
-        </Button>
-      ) : isEditing ? (
-        <Input
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleFinishEdit}
-          onKeyDown={handleKeyDown}
-          autoFocus
-          style={{ 
-            fontSize: 20,
-            fontWeight: 500,
-            maxWidth: 400
-          }}
-        />
-      ) : (
-        <div 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            borderRadius: 4,
-            transition: 'background 0.3s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-          onClick={handleStartEdit}
-        >
-          <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 20 }} />
-          <Title level={4} style={{ margin: 0, color: '#1677ff' }}>
-            {noteName}
-          </Title>
-          <EditOutlined style={{ marginLeft: 8, fontSize: 14, color: '#8c8c8c' }} />
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {!hasNote ? (
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />}
+            size="large"
+            onClick={onCreateNew}
+          >
+            新建笔记
+          </Button>
+        ) : isEditing ? (
+          <Input
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleFinishEdit}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            style={{ 
+              fontSize: 16,
+              fontWeight: 500,
+              maxWidth: 400
+            }}
+          />
+        ) : (
+          <div 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: 4,
+              transition: 'background 0.3s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            onClick={handleStartEdit}
+          >
+            <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+            <Title level={5} style={{ margin: 0, color: '#1677ff' }}>
+              {noteName}
+            </Title>
+            <EditOutlined style={{ marginLeft: 8, fontSize: 12, color: '#8c8c8c' }} />
+          </div>
+        )}
+      </div>
+
+      {hasNote && hasUnsavedChanges && (
+        <Space size={12}>
+          <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
+            未保存
+          </Tag>
+          <Button 
+            type="primary" 
+            icon={<SaveOutlined />}
+            onClick={onSave}
+          >
+            保存
+          </Button>
+        </Space>
       )}
     </div>
   );

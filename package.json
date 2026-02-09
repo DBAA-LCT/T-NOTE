@@ -1,18 +1,19 @@
 {
-  "name": "rich-text-note-editor",
+  "name": "t-note",
   "version": "1.0.0",
-  "description": "本地富文本笔记编辑器",
+  "description": "T-Note - 本地富文本笔记编辑器",
   "main": "dist/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron .",
     "build": "tsc -p tsconfig.electron.json && vite build",
-    "package": "electron-builder"
+    "package": "npm run build && electron-builder"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "antd": "^6.2.3",
+    "dayjs": "^1.11.19",
     "quill": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -31,9 +32,26 @@
     "vite-plugin-electron": "^0.28.0"
   },
   "build": {
-    "appId": "com.noteapp.editor",
+    "appId": "com.tnote.editor",
+    "productName": "T-Note",
+    "icon": "build/icon-256x256.png",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon-256x256.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "extraMetadata": {
+      "main": "dist/main.js"
     }
   }
 }

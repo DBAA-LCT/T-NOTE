@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Layout, Typography, List, Empty, Button, Popconfirm, Collapse, Dropdown, Modal, Input, message } from 'antd';
+import { Typography, List, Empty, Button, Popconfirm, Collapse, Dropdown, Modal, Input, message } from 'antd';
 import { BookOutlined, DeleteOutlined, RightOutlined, EditOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Page, Bookmark } from '../types';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-const { Sider } = Layout;
 const { Text } = Typography;
 const { Panel } = Collapse;
 
@@ -158,16 +157,11 @@ export default function BookmarkPanel({
         </div>
       </Modal>
 
-      <Sider 
-      width={280} 
-      style={{ 
-        background: '#fafafa',
-        borderRight: '1px solid #e8e8e8',
-        height: '100vh',
-        overflow: 'auto'
-      }}
-    >
-      <div style={{ padding: '16px' }}>
+      <div style={{ 
+        height: '100%',
+        overflow: 'auto',
+        padding: '16px'
+      }}>
         <Text strong style={{ fontSize: 16, display: 'block', marginBottom: 16 }}>
           所有书签
         </Text>
@@ -317,7 +311,6 @@ export default function BookmarkPanel({
           </Collapse>
         )}
       </div>
-    </Sider>
     </>
   );
 }

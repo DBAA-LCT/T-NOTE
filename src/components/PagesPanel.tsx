@@ -1,8 +1,7 @@
-import { Layout, Button, List, Tag, Popconfirm, Typography, Space, Tooltip } from 'antd';
+import { Button, List, Tag, Popconfirm, Typography, Space, Tooltip } from 'antd';
 import { PlusOutlined, DeleteOutlined, BookOutlined } from '@ant-design/icons';
 import { Page } from '../types';
 
-const { Sider } = Layout;
 const { Text } = Typography;
 
 interface PagesPanelProps {
@@ -17,16 +16,11 @@ export default function PagesPanel({
   pages, currentPageId, onSelectPage, onAddPage, onDeletePage
 }: PagesPanelProps) {
   return (
-    <Sider 
-      width={280} 
-      style={{ 
-        background: '#fafafa',
-        borderRight: '1px solid #e8e8e8',
-        height: '100vh',
-        overflow: 'auto'
-      }}
-    >
-      <div style={{ padding: '16px' }}>
+    <div style={{ 
+      height: '100%',
+      overflow: 'auto',
+      padding: '16px'
+    }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Text strong style={{ fontSize: 16 }}>页面列表</Text>
           <Button 
@@ -135,7 +129,6 @@ export default function PagesPanel({
             </List.Item>
           )}
         />
-      </div>
-    </Sider>
+    </div>
   );
 }
