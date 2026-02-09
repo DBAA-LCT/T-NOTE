@@ -4,11 +4,12 @@ import {
   FileTextOutlined, 
   SearchOutlined, 
   CheckSquareOutlined,
-  BookOutlined
+  BookOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import './IconBar.css';
 
-export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | null;
+export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | null;
 
 interface IconBarProps {
   activeTab: IconBarTab;
@@ -60,6 +61,15 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
           onClick={() => handleIconClick('bookmarks')}
         >
           <BookOutlined />
+        </div>
+      </Tooltip>
+
+      <Tooltip title="回收站" placement="right">
+        <div 
+          className={`icon-item ${activeTab === 'trash' ? 'active' : ''}`}
+          onClick={() => handleIconClick('trash')}
+        >
+          <DeleteOutlined />
         </div>
       </Tooltip>
     </div>

@@ -40,6 +40,7 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
   const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high'>('all');
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate'>('priority');
   const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('flat');
+  const [groupBy, setGroupBy] = useState<'page' | 'category' | 'priority'>('page');
 
   const openAddModal = () => {
     setEditingTodo(null);
@@ -155,13 +156,60 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
 
   // 按页面分组
   const groupedTodos = sortedTodos.reduce((groups, todo) => {
-    const key = todo.linkedPageId || 'unlinked';
+    let key: string;
+    
+    if (groupBy === 'page') {
+      key = todo.linkedPageId || 'unlinked';
+    } else if (groupBy === 'category') {
+      key = todo.category || 'uncategorized';
+    } else if (groupBy === 'priority') {
+      key = todo.priority;
+    } else {
+      key = 'default';
+    }
+    
     if (!groups[key]) {
       groups[key] = [];
     }
     groups[key].push(todo);
     return groups;
   }, {} as Record<string, TodoItem[]>);
+  
+  // 获取分组标题
+  const getGroupTitle = (key: string) => {
+    if (groupBy === 'page') {
+      if (key === 'unlinked') return '未关联页面';
+      return getPageName(key) || '未命名页面';
+    } else if (groupBy === 'category') {
+      if (key === 'uncategorized') return '未分类';
+      return key;
+    } else if (groupBy === 'priority') {
+      return getPriorityText(key);
+    }
+    return key;
+  };
+  
+  // 获取分组图标
+  const getGroupIcon = (key: string) => {
+    if (groupBy === 'page') {
+      return key === 'unlinked' ? <InboxOutlined /> : <FileTextOutlined />;
+    } else if (groupBy === 'category') {
+      return <AppstoreOutlined />;
+    } else if (groupBy === 'priority') {
+      return <FlagOutlined />;
+    }
+    return <UnorderedListOutlined />;
+  };
+  
+  // 获取分组颜色
+  const getGroupColor = (key: string) => {
+    if (groupBy === 'page') {
+      return key === 'unlinked' ? '#8c8c8c' : '#1677ff';
+    } else if (groupBy === 'priority') {
+      return getPriorityColor(key);
+    }
+    return '#1677ff';
+  };
 
   const stats = {
     total: todos.length,
@@ -357,13 +405,27 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
               type={viewMode === 'flat' ? 'primary' : 'default'}
               icon={<UnorderedListOutlined />}
               onClick={() => setViewMode('flat')}
+              title="列表视图"
             />
             <Button
               type={viewMode === 'grouped' ? 'primary' : 'default'}
               icon={<AppstoreOutlined />}
               onClick={() => setViewMode('grouped')}
+              title="分组视图"
             />
           </Button.Group>
+          {viewMode === 'grouped' && (
+            <Select
+              size="small"
+              value={groupBy}
+              onChange={setGroupBy}
+              style={{ width: 100 }}
+            >
+              <Select.Option value="page">按页面</Select.Option>
+              <Select.Option value="category">按分类</Select.Option>
+              <Select.Option value="priority">按优先级</Select.Option>
+            </Select>
+          )}
         </Space>
       </div>
 
@@ -394,17 +456,10 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
                 key={key}
                 header={
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {key === 'unlinked' ? (
-                      <>
-                        <InboxOutlined style={{ fontSize: 16, color: '#8c8c8c' }} />
-                        <Text strong>未关联页面</Text>
-                      </>
-                    ) : (
-                      <>
-                        <FileTextOutlined style={{ fontSize: 16, color: '#1677ff' }} />
-                        <Text strong>{getPageName(key)}</Text>
-                      </>
-                    )}
+                    <span style={{ fontSize: 16, color: getGroupColor(key) }}>
+                      {getGroupIcon(key)}
+                    </span>
+                    <Text strong>{getGroupTitle(key)}</Text>
                     <Tag style={{ margin: 0 }}>{todos.length}</Tag>
                   </div>
                 }

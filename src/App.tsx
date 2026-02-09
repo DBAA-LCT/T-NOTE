@@ -8,6 +8,7 @@ import PagesPanel from './components/PagesPanel';
 import SearchPanel from './components/SearchPanel';
 import TodoPanel from './components/TodoPanel';
 import BookmarkPanel from './components/BookmarkPanel';
+import TrashPanel from './components/TrashPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -24,6 +25,7 @@ function App() {
   const editorRef = useRef<EditorRef>(null);
   
   // Tab栏和分屏相关状态
+  const MAX_TABS = 5; // 最大Tab数量
   const [leftTabs, setLeftTabs] = useState<string[]>([]); // 左侧Tab列表
   const [rightTabs, setRightTabs] = useState<string[]>([]); // 右侧Tab列表
   const [activeLeftTab, setActiveLeftTab] = useState<string | null>(null); // 左侧激活的Tab
@@ -35,22 +37,67 @@ function App() {
   // 使用 ref 来保存最新的 note 和 currentFilePath
   const noteRef = useRef(note);
   const currentFilePathRef = useRef(currentFilePath);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     noteRef.current = note;
     currentFilePathRef.current = currentFilePath;
   }, [note, currentFilePath]);
 
-  // 自动保存功能
+  // 更新窗口标题
   useEffect(() => {
-    if (!note || !currentFilePath || !hasUnsavedChanges) return;
+    if (note && window.electronAPI) {
+      const title = `${note.name} - T-Note${hasUnsavedChanges ? ' *' : ''}`;
+      window.electronAPI.setWindowTitle(title);
+    } else if (window.electronAPI) {
+      window.electronAPI.setWindowTitle('T-Note');
+    }
+  }, [note?.name, hasUnsavedChanges]);
 
-    // 设置自动保存定时器（3秒后自动保存）
-    const autoSaveTimer = setTimeout(async () => {
+  // 性能监控（仅开发环境）
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const logMemory = () => {
+        if ((performance as any).memory) {
+          const memory = (performance as any).memory;
+          console.log('📊 内存使用情况:', {
+            已使用: (memory.usedJSHeapSize / 1048576).toFixed(2) + ' MB',
+            总计: (memory.totalJSHeapSize / 1048576).toFixed(2) + ' MB',
+            限制: (memory.jsHeapSizeLimit / 1048576).toFixed(2) + ' MB',
+            使用率: ((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100).toFixed(2) + '%'
+          });
+        }
+      };
+
+      // 立即记录一次
+      logMemory();
+      
+      // 每30秒记录一次
+      const interval = setInterval(logMemory, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  // 自动保存功能 - 优化版
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    // 清除之前的定时器
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // 创建新的定时器
+    autoSaveTimerRef.current = setTimeout(async () => {
+      const currentNote = noteRef.current;
+      const currentPath = currentFilePathRef.current;
+      
+      if (!currentNote || !currentPath) return;
+      
       try {
-        await window.electronAPI.saveNoteToPath(currentFilePath, JSON.stringify(note, null, 2));
+        await window.electronAPI.saveNoteToPath(currentPath, JSON.stringify(currentNote, null, 2));
         setHasUnsavedChanges(false);
-        // 使用更轻量的提示，不打断用户
         console.log('自动保存成功');
       } catch (error) {
         console.error('自动保存失败:', error);
@@ -58,8 +105,12 @@ function App() {
       }
     }, 3000);
 
-    return () => clearTimeout(autoSaveTimer);
-  }, [note, currentFilePath, hasUnsavedChanges]);
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [hasUnsavedChanges]); // 只依赖 hasUnsavedChanges
 
   // 侧边栏宽度调整
   useEffect(() => {
@@ -134,6 +185,8 @@ function App() {
       setCurrentPageId(loadedNote.pages[0]?.id || null);
       setCurrentFilePath(result.filePath);
       setHasUnsavedChanges(false);
+      // 打开文件后默认展开页面列表
+      setActiveTab('pages');
       message.success('笔记已打开！');
     }
   }, []);
@@ -167,6 +220,36 @@ function App() {
       if (removeMenuSaveAs) removeMenuSaveAs();
     };
   }, [openNote, saveNote, saveAsNote]);
+
+  // 监听系统打开文件事件（双击.note文件）
+  useEffect(() => {
+    if (!window.electronAPI?.onOpenFileFromSystem) return;
+
+    const removeListener = window.electronAPI.onOpenFileFromSystem(async (filePath: string) => {
+      try {
+        const result = await window.electronAPI.readFile(filePath);
+        if (result.success) {
+          const loadedNote = JSON.parse(result.content);
+          setNote(loadedNote);
+          setCurrentPageId(loadedNote.pages[0]?.id || null);
+          setCurrentFilePath(filePath);
+          setHasUnsavedChanges(false);
+          // 打开文件后默认展开页面列表
+          setActiveTab('pages');
+          message.success('笔记已打开！');
+        } else {
+          message.error('打开文件失败');
+        }
+      } catch (error) {
+        console.error('打开文件失败:', error);
+        message.error('打开文件失败');
+      }
+    });
+
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, []);
 
   const addPage = () => {
     if (!note) return;
@@ -213,9 +296,22 @@ function App() {
 
   const deletePage = (pageId: string) => {
     if (!note) return;
+    
+    const deletedPage = note.pages.find(p => p.id === pageId);
+    if (!deletedPage) return;
+    
+    // 添加到回收站
+    const deletedItem = {
+      id: crypto.randomUUID(),
+      type: 'page' as const,
+      data: deletedPage,
+      deletedAt: Date.now()
+    };
+    
     setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.filter(p => p.id !== pageId),
+      trash: [...(prev.trash || []), deletedItem],
       updatedAt: Date.now()
     }) : null);
     
@@ -227,10 +323,30 @@ function App() {
     if (activeLeftTab === pageId) setActiveLeftTab(null);
     if (activeRightTab === pageId) setActiveRightTab(null);
     setHasUnsavedChanges(true);
+    
+    // 显示撤销提示
+    message.success({
+      content: '页面已删除，可在回收站中恢复',
+      duration: 3
+    });
   };
 
   const deleteBookmark = (pageId: string, bookmarkId: string) => {
     if (!note) return;
+    
+    const page = note.pages.find(p => p.id === pageId);
+    const deletedBookmark = page?.bookmarks?.find(b => b.id === bookmarkId);
+    if (!deletedBookmark) return;
+    
+    // 添加到回收站
+    const deletedItem = {
+      id: crypto.randomUUID(),
+      type: 'bookmark' as const,
+      data: deletedBookmark,
+      pageId: pageId,
+      deletedAt: Date.now()
+    };
+    
     setNote(prev => prev ? ({
       ...prev,
       pages: prev.pages.map(p => 
@@ -238,10 +354,12 @@ function App() {
           ? { ...p, bookmarks: p.bookmarks?.filter(b => b.id !== bookmarkId), updatedAt: Date.now() }
           : p
       ),
+      trash: [...(prev.trash || []), deletedItem],
       updatedAt: Date.now()
     }) : null);
     setHasUnsavedChanges(true);
-    message.success('书签已删除');
+    
+    message.success('书签已删除，可在回收站中恢复');
   };
 
   const updateBookmark = (pageId: string, bookmarkId: string, updates: Partial<any>) => {
@@ -297,13 +415,93 @@ function App() {
 
   const deleteTodo = (todoId: string) => {
     if (!note) return;
+    
+    const deletedTodo = note.todos?.find(t => t.id === todoId);
+    if (!deletedTodo) return;
+    
+    // 添加到回收站
+    const deletedItem = {
+      id: crypto.randomUUID(),
+      type: 'todo' as const,
+      data: deletedTodo,
+      deletedAt: Date.now()
+    };
+    
     setNote(prev => prev ? ({
       ...prev,
       todos: prev.todos?.filter(t => t.id !== todoId),
+      trash: [...(prev.trash || []), deletedItem],
       updatedAt: Date.now()
     }) : null);
     setHasUnsavedChanges(true);
-    message.success('待办事项已删除');
+    
+    message.success('待办事项已删除，可在回收站中恢复');
+  };
+
+  // 回收站相关函数
+  const restoreFromTrash = (item: any) => {
+    if (!note) return;
+    
+    switch (item.type) {
+      case 'page':
+        setNote(prev => prev ? ({
+          ...prev,
+          pages: [...prev.pages, item.data],
+          trash: prev.trash?.filter(t => t.id !== item.id),
+          updatedAt: Date.now()
+        }) : null);
+        message.success('页面已恢复');
+        break;
+      case 'bookmark':
+        if (item.pageId) {
+          setNote(prev => prev ? ({
+            ...prev,
+            pages: prev.pages.map(p => 
+              p.id === item.pageId 
+                ? { ...p, bookmarks: [...(p.bookmarks || []), item.data], updatedAt: Date.now() }
+                : p
+            ),
+            trash: prev.trash?.filter(t => t.id !== item.id),
+            updatedAt: Date.now()
+          }) : null);
+          message.success('书签已恢复');
+        }
+        break;
+      case 'todo':
+        setNote(prev => prev ? ({
+          ...prev,
+          todos: [...(prev.todos || []), item.data],
+          trash: prev.trash?.filter(t => t.id !== item.id),
+          updatedAt: Date.now()
+        }) : null);
+        message.success('待办事项已恢复');
+        break;
+    }
+    setHasUnsavedChanges(true);
+  };
+
+  const permanentDelete = (itemId: string) => {
+    if (!note) return;
+    
+    setNote(prev => prev ? ({
+      ...prev,
+      trash: prev.trash?.filter(t => t.id !== itemId),
+      updatedAt: Date.now()
+    }) : null);
+    setHasUnsavedChanges(true);
+    message.success('已永久删除');
+  };
+
+  const clearTrash = () => {
+    if (!note) return;
+    
+    setNote(prev => prev ? ({
+      ...prev,
+      trash: [],
+      updatedAt: Date.now()
+    }) : null);
+    setHasUnsavedChanges(true);
+    message.success('回收站已清空');
   };
 
   const jumpToBookmark = (pageId: string, position: number, length: number) => {
@@ -479,7 +677,15 @@ function App() {
     setCurrentPageId(pageId);
     // 默认添加到左侧Tab栏
     if (!leftTabs.includes(pageId) && !rightTabs.includes(pageId)) {
-      setLeftTabs(prev => [...prev, pageId]);
+      setLeftTabs(prev => {
+        const newTabs = [...prev, pageId];
+        // 如果超过最大数量，移除最早的 Tab
+        if (newTabs.length > MAX_TABS) {
+          message.info(`已达到最大Tab数量(${MAX_TABS})，自动关闭最早的Tab`);
+          return newTabs.slice(1);
+        }
+        return newTabs;
+      });
       setActiveLeftTab(pageId);
       setActiveSide('left');
     } else if (leftTabs.includes(pageId)) {
@@ -515,6 +721,8 @@ function App() {
       setCurrentPageId(null);
       setCurrentFilePath(filePath);
       setHasUnsavedChanges(false);
+      // 创建新笔记后默认展开页面列表
+      setActiveTab('pages');
       message.success('已创建新笔记！');
     }
   };
@@ -587,6 +795,15 @@ function App() {
             onJumpToBookmark={jumpToBookmark}
             onDeleteBookmark={deleteBookmark}
             onUpdateBookmark={updateBookmark}
+          />
+        );
+      case 'trash':
+        return (
+          <TrashPanel
+            trash={note.trash || []}
+            onRestore={restoreFromTrash}
+            onPermanentDelete={permanentDelete}
+            onClearAll={clearTrash}
           />
         );
       default:

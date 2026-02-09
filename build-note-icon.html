@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>生成Note文件图标</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #1677ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0958d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>T-Note 文档图标生成器</h1>
+    <canvas id="canvas" width="256" height="256"></canvas>
+    <button onclick="downloadIcon()">下载图标 (PNG)</button>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 绘制文档图标
+        function drawDocumentIcon() {
+            // 清空画布
+            ctx.clearRect(0, 0, 256, 256);
+            
+            // 绘制文档背景（白色纸张）
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(50, 30);
+            ctx.lineTo(170, 30);
+            ctx.lineTo(206, 66);
+            ctx.lineTo(206, 226);
+            ctx.lineTo(50, 226);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 绘制文档边框
+            ctx.strokeStyle = '#1677ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(50, 30);
+            ctx.lineTo(170, 30);
+            ctx.lineTo(206, 66);
+            ctx.lineTo(206, 226);
+            ctx.lineTo(50, 226);
+            ctx.closePath();
+            ctx.stroke();
+            
+            // 绘制折角
+            ctx.strokeStyle = '#1677ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(170, 30);
+            ctx.lineTo(170, 66);
+            ctx.lineTo(206, 66);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#e6f4ff';
+            ctx.beginPath();
+            ctx.moveTo(170, 30);
+            ctx.lineTo(170, 66);
+            ctx.lineTo(206, 66);
+            ctx.closePath();
+            ctx.fill();
+            
+            // 绘制文本行
+            ctx.fillStyle = '#1677ff';
+            const lineY = [90, 110, 130, 150, 170, 190];
+            lineY.forEach(y => {
+                ctx.fillRect(70, y, 120, 8);
+            });
+            
+            // 绘制 .note 标签
+            ctx.fillStyle = '#52c41a';
+            ctx.fillRect(80, 200, 96, 20);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('.note', 128, 214);
+        }
+        
+        drawDocumentIcon();
+        
+        function downloadIcon() {
+            const link = document.createElement('a');
+            link.download = 'note-icon-256x256.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>

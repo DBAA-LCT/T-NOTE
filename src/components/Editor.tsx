@@ -122,6 +122,12 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const [contextMenuBookmark, setContextMenuBookmark] = useState<Bookmark | null>(null);
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  
+  // 图片预览相关状态
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [imageScale, setImageScale] = useState(1);
   
   // 待办相关状态
   const [todoPopoverOpen, setTodoPopoverOpen] = useState(false);
@@ -274,7 +280,117 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         if (clickTimer) clearTimeout(clickTimer);
       };
     }
-  }, [page, todos]);
+  }, [page?.id, todos?.length]); // 减少依赖项，只依赖 ID 和长度
+
+  // 监听图片双击事件，实现预览功能
+  useEffect(() => {
+    const editor = editorContainerRef.current;
+    if (!editor) return;
+
+    const handleImageDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'IMG') {
+        const img = target as HTMLImageElement;
+        setPreviewImageUrl(img.src);
+        setImageScale(1); // 重置缩放
+        setImagePreviewVisible(true);
+      }
+    };
+
+    editor.addEventListener('dblclick', handleImageDblClick);
+
+    return () => {
+      editor.removeEventListener('dblclick', handleImageDblClick);
+    };
+  }, []);
+
+  // 图片预览滚轮缩放
+  useEffect(() => {
+    if (!imagePreviewVisible) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      
+      // 计算缩放增量
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      
+      setImageScale(prevScale => {
+        const newScale = prevScale + delta;
+        // 限制缩放范围在 0.1 到 5 之间
+        return Math.max(0.1, Math.min(5, newScale));
+      });
+    };
+
+    // 添加到 document，这样在 Modal 内外都能响应
+    document.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
+    };
+  }, [imagePreviewVisible]);
+
+  // 图片大小调整功能
+  useEffect(() => {
+    const editor = editorContainerRef.current;
+    if (!editor) return;
+
+    let isResizing = false;
+    let currentImg: HTMLImageElement | null = null;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startHeight = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'IMG' && e.button === 0 && e.shiftKey) {
+        // Shift + 左键点击图片开始调整大小
+        e.preventDefault();
+        isResizing = true;
+        currentImg = target as HTMLImageElement;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = currentImg.width;
+        startHeight = currentImg.height;
+        currentImg.classList.add('resizing');
+        document.body.style.cursor = 'nwse-resize';
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing || !currentImg) return;
+      
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+      const delta = Math.max(deltaX, deltaY);
+      
+      const newWidth = Math.max(50, startWidth + delta);
+      const aspectRatio = startHeight / startWidth;
+      const newHeight = newWidth * aspectRatio;
+      
+      currentImg.style.width = newWidth + 'px';
+      currentImg.style.height = newHeight + 'px';
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing && currentImg) {
+        currentImg.classList.remove('resizing');
+        document.body.style.cursor = 'default';
+        isResizing = false;
+        currentImg = null;
+      }
+    };
+
+    editor.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      editor.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // 同步书签信息到 DOM（更新 title 属性）
   useEffect(() => {
@@ -558,6 +674,37 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
       }
     }
   }, [page]);
+
+  // ESC键清除格式功能
+  useEffect(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const selection = quill.getSelection();
+        if (selection && selection.length > 0) {
+          // 清除选中文本的所有格式
+          quill.removeFormat(selection.index, selection.length);
+          message.success('已清除格式');
+        } else if (selection) {
+          // 如果没有选中文本，清除当前光标位置的格式
+          const format = quill.getFormat(selection.index);
+          Object.keys(format).forEach(key => {
+            quill.format(key, false);
+          });
+          message.success('已清除当前格式');
+        }
+      }
+    };
+
+    const editorElement = quill.root;
+    editorElement.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      editorElement.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [page?.id]);
 
 
 
@@ -1496,6 +1643,52 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         </div>
       </Modal>
 
+      {/* 图片预览对话框 */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>图片预览</span>
+            <span style={{ fontSize: 14, color: '#666', fontWeight: 'normal' }}>
+              缩放: {(imageScale * 100).toFixed(0)}% (滚轮缩放)
+            </span>
+          </div>
+        }
+        open={imagePreviewVisible}
+        onCancel={() => {
+          setImagePreviewVisible(false);
+          setImageScale(1);
+        }}
+        footer={null}
+        width="90%"
+        style={{ maxWidth: 1400, top: 20 }}
+        centered
+      >
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          maxHeight: '75vh',
+          overflow: 'auto',
+          background: '#f5f5f5',
+          borderRadius: 8,
+          padding: 20
+        }}>
+          <img 
+            src={previewImageUrl} 
+            alt="预览" 
+            style={{ 
+              transform: `scale(${imageScale})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.1s ease-out',
+              maxWidth: '100%',
+              maxHeight: '70vh',
+              objectFit: 'contain',
+              cursor: 'grab'
+            }} 
+          />
+        </div>
+      </Modal>
+
       <Content style={{ 
         display: 'flex',
         flexDirection: 'column',
@@ -1503,58 +1696,97 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         background: '#fff'
       }}>
       <div style={{ 
-        padding: '16px 24px',
+        padding: headerCollapsed ? '8px 24px' : '16px 24px',
         borderBottom: '1px solid #e8e8e8',
-        background: '#fafafa'
+        background: '#fafafa',
+        transition: 'all 0.3s',
+        position: 'relative'
       }}>
-        <Input
-          value={page.title}
-          onChange={(e) => onUpdatePage({ title: e.target.value })}
-          placeholder="输入页面标题..."
-          bordered={false}
-          style={{ 
-            fontSize: 20,
-            fontWeight: 600,
-            marginBottom: 12,
-            padding: 0
+        {/* 折叠按钮 */}
+        <Button
+          type="text"
+          size="small"
+          onClick={() => setHeaderCollapsed(!headerCollapsed)}
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            zIndex: 10,
+            fontSize: 12,
+            color: '#999'
           }}
-        />
+          title={headerCollapsed ? '展开标题栏' : '折叠标题栏'}
+        >
+          {headerCollapsed ? '展开 ▼' : '折叠 ▲'}
+        </Button>
         
-        <Space direction="vertical" style={{ width: '100%' }} size="small">
-          <div>
-            <Space size={[8, 8]} wrap>
-              {page.tags.map(tag => (
-                <Tag 
-                  key={tag} 
-                  color="blue"
-                  closable
-                  onClose={() => removeTag(tag)}
-                  style={{ fontSize: 13, padding: '4px 8px' }}
-                >
-                  {tag}
-                </Tag>
-              ))}
-            </Space>
+        {headerCollapsed ? (
+          // 折叠状态：只显示标题
+          <div style={{ 
+            fontSize: 16,
+            fontWeight: 600,
+            color: '#333',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            paddingRight: 80
+          }}>
+            {page.title || '未命名页面'}
           </div>
-          
-          <Space.Compact style={{ maxWidth: 280 }}>
+        ) : (
+          // 展开状态：显示完整标题栏
+          <>
             <Input
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onPressEnter={addTag}
-              placeholder="添加标签..."
-              size="small"
+              value={page.title}
+              onChange={(e) => onUpdatePage({ title: e.target.value })}
+              placeholder="输入页面标题..."
+              bordered={false}
+              style={{ 
+                fontSize: 20,
+                fontWeight: 600,
+                marginBottom: 12,
+                padding: 0,
+                paddingRight: 80
+              }}
             />
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={addTag}
-              size="small"
-            >
-              添加
-            </Button>
-          </Space.Compact>
-        </Space>
+            
+            <Space direction="vertical" style={{ width: '100%' }} size="small">
+              <div>
+                <Space size={[8, 8]} wrap>
+                  {page.tags.map(tag => (
+                    <Tag 
+                      key={tag} 
+                      color="blue"
+                      closable
+                      onClose={() => removeTag(tag)}
+                      style={{ fontSize: 13, padding: '4px 8px' }}
+                    >
+                      {tag}
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+              
+              <Space.Compact style={{ maxWidth: 280 }}>
+                <Input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onPressEnter={addTag}
+                  placeholder="添加标签..."
+                  size="small"
+                />
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={addTag}
+                  size="small"
+                >
+                  添加
+                </Button>
+              </Space.Compact>
+            </Space>
+          </>
+        )}
       </div>
 
       <div 

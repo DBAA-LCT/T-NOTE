@@ -8,6 +8,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: 'T-Note',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -134,6 +135,37 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// 处理打开文件事件（双击.note文件）
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (mainWindow) {
+    // 如果窗口已经打开，发送文件路径到渲染进程
+    mainWindow.webContents.send('open-file-from-system', filePath);
+  } else {
+    // 如果窗口还没打开，等待窗口准备好后再发送
+    app.whenReady().then(() => {
+      if (mainWindow) {
+        mainWindow.webContents.send('open-file-from-system', filePath);
+      }
+    });
+  }
+});
+
+// Windows 和 Linux 下处理命令行参数（双击文件）
+if (process.platform === 'win32' || process.platform === 'linux') {
+  // 获取命令行参数中的文件路径
+  const filePath = process.argv.find(arg => arg.endsWith('.note'));
+  if (filePath) {
+    app.whenReady().then(() => {
+      setTimeout(() => {
+        if (mainWindow) {
+          mainWindow.webContents.send('open-file-from-system', filePath);
+        }
+      }, 1000); // 延迟1秒确保窗口已完全加载
+    });
+  }
+}
+
 // 保存笔记到指定路径
 ipcMain.handle('save-note-to-path', async (_, filePath: string, noteData: string) => {
   await fs.writeFile(filePath, noteData, 'utf-8');
@@ -245,5 +277,23 @@ ipcMain.handle('rename-file', async (_, oldPath: string, newName: string) => {
   } catch (error) {
     console.error('重命名文件失败:', error);
     return null;
+  }
+});
+
+// 设置窗口标题
+ipcMain.handle('set-window-title', async (_, title: string) => {
+  if (mainWindow) {
+    mainWindow.setTitle(title);
+  }
+});
+
+// 读取文件内容
+ipcMain.handle('read-file', async (_, filePath: string) => {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    return { success: true, content };
+  } catch (error) {
+    console.error('读取文件失败:', error);
+    return { success: false, error: String(error) };
   }
 });

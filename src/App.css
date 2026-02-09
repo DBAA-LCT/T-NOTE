@@ -28,7 +28,7 @@ body {
 }
 
 .ql-editor {
-  line-height: 1.8;
+  line-height: 1.3;
   height: 100%;
   overflow-y: auto;
 }
@@ -49,7 +49,59 @@ body {
 }
 
 .ql-editor p {
-  margin-bottom: 1em;
+  margin-bottom: 0.5em;
+}
+
+/* 图片样式 */
+.ql-editor img {
+  max-width: 100%;
+  height: auto;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: inline-block;
+}
+
+.ql-editor img:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 图片大小调整手柄 */
+.ql-editor img.resizing {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+/* 图片容器 */
+.image-resizer {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image-resizer img {
+  display: block;
+}
+
+.image-resizer .resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #1677ff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  display: none;
+}
+
+.image-resizer:hover .resize-handle,
+.image-resizer.resizing .resize-handle {
+  display: block;
+}
+
+.image-resizer .resize-handle.bottom-right {
+  bottom: -5px;
+  right: -5px;
 }
 
 .ql-toolbar {

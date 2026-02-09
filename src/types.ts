@@ -34,11 +34,20 @@ export interface Page {
   updatedAt: number;
 }
 
+export interface DeletedItem {
+  id: string;
+  type: 'page' | 'bookmark' | 'todo';
+  data: Page | Bookmark | TodoItem;
+  pageId?: string; // 如果是书签，记录所属页面ID
+  deletedAt: number;
+}
+
 export interface Note {
   id: string;
   name: string;
   pages: Page[];
   todos?: TodoItem[]; // TODO列表
+  trash?: DeletedItem[]; // 回收站
   createdAt: number;
   updatedAt: number;
 }
@@ -50,6 +59,7 @@ declare global {
       saveNoteToPath: (filePath: string, noteData: string) => Promise<boolean>;
       openNote: () => Promise<{ filePath: string; content: string } | null>;
       renameFile: (oldPath: string, newName: string) => Promise<string | null>;
+      setWindowTitle: (title: string) => Promise<void>;
       onMenuOpen: (callback: () => void) => void;
       onMenuSave: (callback: () => void) => void;
       onMenuSaveAs: (callback: () => void) => void;
