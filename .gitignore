@@ -2,3 +2,4 @@ node_modules
 dist
 *.note
 .DS_Store
+release/win-unpacked/
