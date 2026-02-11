@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { registerSyncHandlers } from './ipc/handlers';
+import { logger } from './utils/logger';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -12,7 +14,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: false
     }
   });
 
@@ -125,11 +128,21 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, './renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  // Register OneDrive sync IPC handlers
+  registerSyncHandlers(mainWindow);
+  logger.info('general', 'OneDrive sync handlers registered');
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  // Initialize settings manager first
+  const { ensureSettingsManagerInitialized } = require('./services/settings-manager');
+  await ensureSettingsManagerInitialized();
+  
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

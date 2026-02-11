@@ -1,6 +1,8 @@
 import { Button, Typography, Input, Space, Tag } from 'antd';
 import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
 import { useState } from 'react';
+import OneDriveSyncButton from './OneDriveSyncButton';
+import OfflineModeIndicator from './OfflineModeIndicator';
 
 const { Title } = Typography;
 
@@ -109,20 +111,25 @@ export default function TopBar({
         )}
       </div>
 
-      {hasNote && hasUnsavedChanges && (
-        <Space size={12}>
-          <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
-            未保存
-          </Tag>
-          <Button 
-            type="primary" 
-            icon={<SaveOutlined />}
-            onClick={onSave}
-          >
-            保存
-          </Button>
-        </Space>
-      )}
+      <Space size={12}>
+        <OfflineModeIndicator />
+        <OneDriveSyncButton />
+        
+        {hasNote && hasUnsavedChanges && (
+          <>
+            <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
+              未保存
+            </Tag>
+            <Button 
+              type="primary" 
+              icon={<SaveOutlined />}
+              onClick={onSave}
+            >
+              保存
+            </Button>
+          </>
+        )}
+      </Space>
     </div>
   );
 }

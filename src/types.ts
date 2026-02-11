@@ -32,6 +32,15 @@ export interface Page {
   scrollPosition?: number; // 滚动位置
   createdAt: number;
   updatedAt: number;
+  
+  // 页面级同步状态
+  syncStatus?: {
+    status: 'not_synced' | 'synced' | 'pending' | 'syncing' | 'error' | 'cloud_newer' | 'local_newer';
+    lastSyncAt?: number;        // 最后同步时间
+    cloudUpdatedAt?: number;    // 云端更新时间
+    contentHash?: string;       // 内容哈希，用于快速比较
+    error?: string;             // 错误信息
+  };
 }
 
 export interface DeletedItem {
@@ -50,6 +59,14 @@ export interface Note {
   trash?: DeletedItem[]; // 回收站
   createdAt: number;
   updatedAt: number;
+  
+  // 笔记级同步配置
+  syncConfig?: {
+    enabled: boolean;           // 是否启用同步
+    autoCommit: boolean;        // 是否自动提交（默认false）
+    oneDrivePath: string;       // OneDrive路径
+    lastSyncAt: number;         // 最后同步时间
+  };
 }
 
 declare global {

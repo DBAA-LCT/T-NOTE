@@ -4,3 +4,10 @@ dist
 .DS_Store
 release/win-unpacked/
 release/
+tests/
+.kiro/
+
+# Environment variables
+.env
+.env.local
+.env.*.local

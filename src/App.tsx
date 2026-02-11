@@ -9,6 +9,8 @@ import SearchPanel from './components/SearchPanel';
 import TodoPanel from './components/TodoPanel';
 import BookmarkPanel from './components/BookmarkPanel';
 import TrashPanel from './components/TrashPanel';
+import OneDriveSettingsPanel from './components/OneDriveSettingsPanel';
+import CloudPagesPanel from './components/CloudPagesPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -111,6 +113,31 @@ function App() {
       }
     };
   }, [hasUnsavedChanges]); // 只依赖 hasUnsavedChanges
+
+  // 自动提交功能（如果启用）
+  useEffect(() => {
+    if (!note?.syncConfig?.enabled) return;
+    if (!note?.syncConfig?.autoCommit) return;
+    if (!currentPageId) return;
+    if (!hasUnsavedChanges) return;
+
+    const currentPage = note.pages.find(p => p.id === currentPageId);
+    if (!currentPage) return;
+
+    // Debounce 自动提交（10秒后）
+    const timer = setTimeout(async () => {
+      try {
+        const result = await window.electronAPI.onedrive.commitPage(note.id, currentPageId);
+        if (result.success && !result.skipped) {
+          console.log('页面已自动提交到云端');
+        }
+      } catch (error) {
+        console.error('自动提交失败:', error);
+      }
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [note, currentPageId, hasUnsavedChanges]);
 
   // 侧边栏宽度调整
   useEffect(() => {
@@ -751,9 +778,9 @@ function App() {
   };
 
   const renderSidePanel = () => {
-    if (!note) return null;
     switch (activeTab) {
       case 'pages':
+        if (!note) return null;
         return (
           <PagesPanel
             pages={note.pages}
@@ -764,6 +791,7 @@ function App() {
           />
         );
       case 'search':
+        if (!note) return null;
         return (
           <SearchPanel
             pages={note.pages}
@@ -776,6 +804,7 @@ function App() {
           />
         );
       case 'todo':
+        if (!note) return null;
         return (
           <TodoPanel 
             todos={note.todos || []}
@@ -787,6 +816,7 @@ function App() {
           />
         );
       case 'bookmarks':
+        if (!note) return null;
         return (
           <BookmarkPanel
             pages={note.pages}
@@ -798,6 +828,7 @@ function App() {
           />
         );
       case 'trash':
+        if (!note) return null;
         return (
           <TrashPanel
             trash={note.trash || []}
@@ -806,6 +837,20 @@ function App() {
             onClearAll={clearTrash}
           />
         );
+      case 'onedrive':
+        return <OneDriveSettingsPanel />;
+      case 'cloudnotes':
+        return <CloudPagesPanel currentNote={note} onPageUpdate={() => {
+          // 重新加载笔记以获取最新数据
+          if (currentFilePath && note) {
+            window.electronAPI.readFile(currentFilePath).then(result => {
+              if (result.success && result.content) {
+                const loadedNote = JSON.parse(result.content);
+                setNote(loadedNote);
+              }
+            });
+          }
+        }} />;
       default:
         return null;
     }
@@ -1083,6 +1128,8 @@ function App() {
                           onUpdateTodo={updateTodo}
                           onDeleteTodo={deleteTodo}
                           onJumpToPage={jumpToContentPosition}
+                          noteId={note?.id}
+                          syncConfig={note?.syncConfig}
                         />
                       ) : (
                         <ReadOnlyEditor page={activeLeftPage} />
@@ -1112,6 +1159,8 @@ function App() {
                           onUpdateTodo={updateTodo}
                           onDeleteTodo={deleteTodo}
                           onJumpToPage={jumpToContentPosition}
+                          noteId={note?.id}
+                          syncConfig={note?.syncConfig}
                         />
                       ) : (
                         <ReadOnlyEditor page={activeRightPage} />

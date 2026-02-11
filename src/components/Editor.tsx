@@ -5,6 +5,7 @@ import type { MenuProps } from 'antd';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Page, Bookmark, TodoItem } from '../types';
+import PageCommitButton from './PageCommitButton';
 import dayjs from 'dayjs';
 
 const { Content } = Layout;
@@ -105,6 +106,11 @@ interface EditorProps {
   onUpdateTodo?: (id: string, updates: Partial<TodoItem>) => void;
   onDeleteTodo?: (id: string) => void;
   onJumpToPage?: (pageId: string, position: number) => void;
+  noteId?: string;  // 笔记ID，用于页面级同步
+  syncConfig?: {    // 同步配置
+    enabled: boolean;
+    autoCommit: boolean;
+  };
 }
 
 export interface EditorRef {
@@ -112,7 +118,7 @@ export interface EditorRef {
   jumpToPosition: (position: number) => void;
 }
 
-const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos = [], onAddTodo, onUpdateTodo, onDeleteTodo, onJumpToPage }, ref) => {
+const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos = [], onAddTodo, onUpdateTodo, onDeleteTodo, onJumpToPage, noteId, syncConfig }, ref) => {
   const [tagInput, setTagInput] = useState('');
   const [bookmarkInput, setBookmarkInput] = useState('');
   const [bookmarkPopoverOpen, setBookmarkPopoverOpen] = useState(false);
@@ -1702,23 +1708,43 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         transition: 'all 0.3s',
         position: 'relative'
       }}>
-        {/* 折叠按钮 */}
-        <Button
-          type="text"
-          size="small"
-          onClick={() => setHeaderCollapsed(!headerCollapsed)}
-          style={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            zIndex: 10,
-            fontSize: 12,
-            color: '#999'
-          }}
-          title={headerCollapsed ? '展开标题栏' : '折叠标题栏'}
-        >
-          {headerCollapsed ? '展开 ▼' : '折叠 ▲'}
-        </Button>
+        {/* 右上角按钮组 */}
+        <div style={{
+          position: 'absolute',
+          right: 8,
+          top: 8,
+          zIndex: 10,
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center'
+        }}>
+          {/* 页面提交按钮 */}
+          {noteId && syncConfig?.enabled && page && (
+            <PageCommitButton
+              noteId={noteId}
+              pageId={page.id}
+              syncStatus={page.syncStatus}
+              autoCommit={syncConfig.autoCommit}
+              onCommitSuccess={() => {
+                // 提交成功后可以刷新状态
+              }}
+            />
+          )}
+          
+          {/* 折叠按钮 */}
+          <Button
+            type="text"
+            size="small"
+            onClick={() => setHeaderCollapsed(!headerCollapsed)}
+            style={{
+              fontSize: 12,
+              color: '#999'
+            }}
+            title={headerCollapsed ? '展开标题栏' : '折叠标题栏'}
+          >
+            {headerCollapsed ? '展开 ▼' : '折叠 ▲'}
+          </Button>
+        </div>
         
         {headerCollapsed ? (
           // 折叠状态：只显示标题
