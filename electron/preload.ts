@@ -30,8 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sync: (options?: any) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_EXECUTE, options),
     syncNote: (noteId: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOTE, noteId),
     uploadNote: (noteId: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_UPLOAD_NOTE, noteId),
-    uploadNoteContent: (noteContent: string, noteName: string) => ipcRenderer.invoke('onedrive:sync:uploadNoteContent', { noteContent, noteName }),
-    downloadNote: (cloudNoteId: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_DOWNLOAD_NOTE, cloudNoteId),
+    uploadNoteContent: (params: { noteContent: string; noteName: string }) => ipcRenderer.invoke('onedrive:sync:uploadNoteContent', params),
+    downloadNote: (cloudNoteId: string, localPath?: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_DOWNLOAD_NOTE, cloudNoteId, localPath),
     getSyncStatus: (noteId: string) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_GET_STATUS, noteId),
     cancelSync: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_CANCEL),
     

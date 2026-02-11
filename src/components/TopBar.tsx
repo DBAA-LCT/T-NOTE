@@ -3,6 +3,8 @@ import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined } from '@ant
 import { useState } from 'react';
 import OneDriveSyncButton from './OneDriveSyncButton';
 import OfflineModeIndicator from './OfflineModeIndicator';
+import UploadToCloudButton from './UploadToCloudButton';
+import type { Note } from '../types';
 
 const { Title } = Typography;
 
@@ -10,22 +12,28 @@ interface TopBarProps {
   noteName: string;
   hasNote: boolean;
   hasUnsavedChanges: boolean;
+  currentNote: Note | null;
+  currentFilePath: string | null;
   onSave: () => void;
   onSaveAs: () => void;
   onOpen: () => void;
   onCreateNew: () => void;
   onUpdateNoteName: (name: string) => void;
+  onUploadSuccess?: () => void;
 }
 
 export default function TopBar({ 
   noteName, 
   hasNote, 
   hasUnsavedChanges,
+  currentNote,
+  currentFilePath,
   onSave, 
   onSaveAs, 
   onOpen, 
   onCreateNew, 
-  onUpdateNoteName 
+  onUpdateNoteName,
+  onUploadSuccess
 }: TopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(noteName);
@@ -113,7 +121,22 @@ export default function TopBar({
 
       <Space size={12}>
         <OfflineModeIndicator />
-        <OneDriveSyncButton />
+        
+        {/* 如果笔记未启用云端同步，显示上传按钮 */}
+        {hasNote && currentNote && !currentNote.syncConfig?.enabled && (
+          <UploadToCloudButton
+            noteId={currentNote.id}
+            noteName={currentNote.name}
+            noteContent={JSON.stringify(currentNote, null, 2)}
+            currentFilePath={currentFilePath || undefined}
+            onUploadSuccess={onUploadSuccess}
+          />
+        )}
+        
+        {/* 如果笔记已启用云端同步，显示同步按钮 */}
+        {hasNote && currentNote?.syncConfig?.enabled && (
+          <OneDriveSyncButton />
+        )}
         
         {hasNote && hasUnsavedChanges && (
           <>

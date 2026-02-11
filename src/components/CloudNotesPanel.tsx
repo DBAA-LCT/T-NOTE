@@ -1,40 +1,30 @@
 import { useState, useEffect } from 'react';
-import { List, Typography, Space, Button, Tag, Spin, Empty, message } from 'antd';
-import { 
-  CloudOutlined, 
-  DownloadOutlined, 
-  CheckCircleOutlined,
-  ReloadOutlined
+import { List, Typography, Space, Button, Tag, Spin, Empty, message, Modal, Input } from 'antd';
+import {
+  CloudOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 import type { CloudNote } from '../types/onedrive-sync';
 
 const { Text } = Typography;
 
 interface CloudNotesPanelProps {
-  onDownloadNote?: (cloudNoteId: string) => void;
+  onNoteDownloaded?: () => void;
 }
 
-export default function CloudNotesPanel({ onDownloadNote }: CloudNotesPanelProps) {
+export default function CloudNotesPanel({ onNoteDownloaded }: CloudNotesPanelProps) {
   const [cloudNotes, setCloudNotes] = useState<CloudNote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [downloadDialog, setDownloadDialog] = useState<{
+    visible: boolean;
+    note?: CloudNote;
+  }>({ visible: false });
 
   useEffect(() => {
-    checkAuthAndLoadNotes();
+    loadCloudNotes();
   }, []);
-
-  const checkAuthAndLoadNotes = async () => {
-    try {
-      const authenticated = await window.electronAPI.onedrive.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      
-      if (authenticated) {
-        await loadCloudNotes();
-      }
-    } catch (error) {
-      console.error('检查认证状态失败:', error);
-    }
-  };
 
   const loadCloudNotes = async () => {
     setLoading(true);
@@ -42,37 +32,50 @@ export default function CloudNotesPanel({ onDownloadNote }: CloudNotesPanelProps
       const notes = await window.electronAPI.onedrive.getCloudNotes();
       setCloudNotes(notes);
     } catch (error: any) {
-      console.error('加载云笔记失败:', error);
-      message.error(error.message || '加载云笔记失败');
+      message.error(error.message || '加载云端笔记失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownload = async (note: CloudNote) => {
-    try {
-      message.loading({ content: `正在下载 ${note.name}...`, key: 'download' });
-      await window.electronAPI.onedrive.downloadNote(note.id);
-      message.success({ content: `${note.name} 下载成功！`, key: 'download' });
-      
-      // 重新加载云笔记列表以更新状态
-      await loadCloudNotes();
-      
-      if (onDownloadNote) {
-        onDownloadNote(note.id);
-      }
-    } catch (error: any) {
-      console.error('下载笔记失败:', error);
-      message.error({ content: error.message || '下载笔记失败', key: 'download' });
-    }
+  const handleDownloadNote = async (note: CloudNote) => {
+    setDownloadDialog({
+      visible: true,
+      note
+    });
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  const confirmDownload = async () => {
+    if (!downloadDialog.note) return;
+
+    try {
+      // 让用户选择本地保存位置
+      const filePath = await window.electronAPI.saveNote('', downloadDialog.note.name);
+      
+      if (!filePath) {
+        message.info('已取消下载');
+        return;
+      }
+
+      // 下载笔记到指定位置
+      const result = await window.electronAPI.onedrive.downloadNote(downloadDialog.note.id, filePath);
+      
+      if (result.success) {
+        message.success('笔记已下载到本地');
+        setDownloadDialog({ visible: false });
+        
+        if (onNoteDownloaded) {
+          onNoteDownloaded();
+        }
+        
+        // 刷新列表
+        loadCloudNotes();
+      } else {
+        message.error(result.error || '下载失败');
+      }
+    } catch (error: any) {
+      message.error(error.message || '下载失败');
+    }
   };
 
   const formatDate = (timestamp: number): string => {
@@ -92,44 +95,23 @@ export default function CloudNotesPanel({ onDownloadNote }: CloudNotesPanelProps
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div style={{ 
-        height: '100%',
-        overflow: 'auto',
-        padding: '16px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text strong style={{ fontSize: 16 }}>
-            <CloudOutlined style={{ marginRight: 8 }} />
-            云笔记
-          </Text>
-        </div>
-        
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="请先连接 OneDrive 账号"
-          style={{ marginTop: 60 }}
-        />
-      </div>
-    );
-  }
+  const formatSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   return (
-    <div style={{ 
-      height: '100%',
-      overflow: 'auto',
-      padding: '16px'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <div style={{ padding: 16, height: '100%', overflow: 'auto' }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           <Text strong style={{ fontSize: 16 }}>
             <CloudOutlined style={{ marginRight: 8 }} />
-            云笔记
+            云端笔记
           </Text>
           <Tag color="blue">{cloudNotes.length} 个</Tag>
         </Space>
-        <Button 
+        <Button
           icon={<ReloadOutlined />}
           size="small"
           onClick={loadCloudNotes}
@@ -145,7 +127,6 @@ export default function CloudNotesPanel({ onDownloadNote }: CloudNotesPanelProps
           locale={{ emptyText: '云端暂无笔记' }}
           renderItem={(note) => (
             <List.Item
-              key={note.id}
               style={{
                 padding: '12px',
                 borderRadius: '8px',
@@ -154,58 +135,86 @@ export default function CloudNotesPanel({ onDownloadNote }: CloudNotesPanelProps
                 border: '1px solid #e8e8e8',
                 transition: 'all 0.3s'
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#1890ff';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e8e8e8';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              actions={[
+                <Button
+                  key="download"
+                  type="primary"
+                  size="small"
+                  icon={<DownloadOutlined />}
+                  onClick={() => handleDownloadNote(note)}
+                  disabled={note.existsLocally}
+                >
+                  {note.existsLocally ? '已在本地' : '下载'}
+                </Button>
+              ]}
             >
-              <div style={{ width: '100%' }}>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'flex-start',
-                  marginBottom: 8
-                }}>
-                  <div style={{ flex: 1, marginRight: 8 }}>
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Text strong ellipsis style={{ flex: 1 }}>
-                          {note.name}
-                        </Text>
-                        {note.existsLocally && (
-                          <Tag 
-                            icon={<CheckCircleOutlined />} 
-                            color="success"
-                            style={{ margin: 0, fontSize: 11 }}
-                          >
-                            已下载
-                          </Tag>
-                        )}
-                      </div>
-                      
-                      <Space size={8} style={{ fontSize: 12 }}>
-                        <Text type="secondary">
-                          {formatDate(note.updatedAt)}
-                        </Text>
-                        <Text type="secondary">
-                          {formatBytes(note.size)}
-                        </Text>
-                      </Space>
-                    </Space>
-                  </div>
-                  
-                  {!note.existsLocally && (
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() => handleDownload(note)}
-                    >
-                      下载
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <List.Item.Meta
+                avatar={<FolderOutlined style={{ fontSize: 24, color: '#1890ff' }} />}
+                title={
+                  <Space>
+                    <Text strong>{note.name}</Text>
+                    {note.existsLocally && <Tag color="green">本地已有</Tag>}
+                  </Space>
+                }
+                description={
+                  <Space direction="vertical" size={0}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      更新时间：{formatDate(note.updatedAt)}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      大小：{formatSize(note.size)}
+                    </Text>
+                  </Space>
+                }
+              />
             </List.Item>
           )}
         />
       </Spin>
+
+      <Modal
+        title="下载云端笔记"
+        open={downloadDialog.visible}
+        onCancel={() => setDownloadDialog({ visible: false })}
+        onOk={confirmDownload}
+        okText="下载"
+        cancelText="取消"
+      >
+        {downloadDialog.note && (
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <div>
+              <Text strong>笔记名称：</Text>
+              <Text>{downloadDialog.note.name}</Text>
+            </div>
+            <div>
+              <Text strong>更新时间：</Text>
+              <Text>{new Date(downloadDialog.note.updatedAt).toLocaleString('zh-CN')}</Text>
+            </div>
+            <div>
+              <Text strong>文件大小：</Text>
+              <Text>{formatSize(downloadDialog.note.size)}</Text>
+            </div>
+            <div style={{
+              padding: 12,
+              background: '#e6f7ff',
+              border: '1px solid #91d5ff',
+              borderRadius: 4
+            }}>
+              <Text type="secondary">
+                点击"下载"后，请选择保存位置
+              </Text>
+            </div>
+          </Space>
+        )}
+      </Modal>
     </div>
   );
 }

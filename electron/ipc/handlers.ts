@@ -149,34 +149,99 @@ export function registerSyncHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Upload note content directly (for current note in editor)
-  ipcMain.handle('onedrive:sync:uploadNoteContent', async (_, { noteContent, noteName }: { noteContent: string; noteName: string }) => {
+  ipcMain.handle('onedrive:sync:uploadNoteContent', async (_, { noteContent, noteName, noteId, currentFilePath }: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string }) => {
     try {
-      logger.info('sync', 'IPC: Uploading note content', { noteName });
+      logger.info('sync', 'IPC: Uploading note content', { noteName, noteId, contentLength: noteContent.length });
       
       const syncFolder = getSettingsManager().getSyncFolder();
       if (!syncFolder) {
         throw new Error('Sync folder not configured');
       }
 
-      // Parse note content
-      const note = JSON.parse(noteContent);
+      // Parse and validate note content
+      let note;
+      try {
+        note = JSON.parse(noteContent);
+        logger.info('sync', 'Note parsed successfully', { 
+          id: note.id, 
+          name: note.name, 
+          pagesCount: note.pages?.length || 0 
+        });
+      } catch (error) {
+        logger.error('sync', 'Failed to parse note content', error as Error);
+        throw new Error('Invalid note content format');
+      }
+      
+      // 确定文件名：如果有本地文件路径，使用本地文件名；否则使用笔记ID
+      let fileName: string;
+      if (currentFilePath) {
+        // 从本地文件路径提取文件名
+        fileName = path.basename(currentFilePath);
+        logger.info('sync', 'Using filename from local path', { fileName, currentFilePath });
+      } else {
+        // 使用笔记ID作为文件名
+        fileName = `${noteId}.note`;
+        logger.info('sync', 'Using noteId as filename', { fileName });
+      }
       
       // Create temporary file
       const tempDir = await import('os').then(os => os.tmpdir());
-      const tempFilePath = path.join(tempDir, `${note.id}.note`);
+      const tempFilePath = path.join(tempDir, fileName);
       await fs.writeFile(tempFilePath, noteContent, 'utf-8');
+      
+      // Verify temp file was written correctly
+      const tempFileContent = await fs.readFile(tempFilePath, 'utf-8');
+      logger.info('sync', 'Temp file created', { 
+        tempFilePath, 
+        originalLength: noteContent.length,
+        tempFileLength: tempFileContent.length,
+        match: noteContent === tempFileContent
+      });
 
       try {
         // Upload to OneDrive
         const client = getOneDriveClient();
-        const remotePath = `${syncFolder}/${note.id}.note`;
+        const remotePath = `${syncFolder}/${fileName}`;
+        logger.info('sync', 'Uploading to OneDrive', { remotePath });
+        
         const driveItem = await client.uploadFile(tempFilePath, remotePath);
 
-        logger.info('sync', 'IPC: Note content uploaded successfully', { noteId: note.id, cloudId: driveItem.id });
+        logger.info('sync', 'IPC: Note content uploaded successfully', { 
+          noteId, 
+          cloudId: driveItem.id, 
+          fileName,
+          size: driveItem.size
+        });
+
+        // 更新笔记的同步配置
+        if (currentFilePath) {
+          const { getFileManager } = require('../services/file-manager');
+          const fileManager = getFileManager();
+          
+          try {
+            const updatedNote = await fileManager.readNote(noteId);
+            updatedNote.syncConfig = {
+              enabled: true,
+              autoCommit: false,
+              oneDrivePath: syncFolder,
+              lastSyncAt: Date.now()
+            };
+            updatedNote.syncMetadata = {
+              cloudId: driveItem.id,
+              lastSyncAt: Date.now(),
+              syncStatus: 'synced'
+            };
+            await fileManager.writeNote(updatedNote);
+            logger.info('sync', 'Note sync config updated', { noteId });
+          } catch (error) {
+            logger.warn('sync', 'Failed to update note sync config', error as Error);
+          }
+        }
 
         return {
           success: true,
-          cloudId: driveItem.id
+          cloudId: driveItem.id,
+          fileName: fileName
         };
       } finally {
         // Clean up temp file
@@ -188,16 +253,36 @@ export function registerSyncHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.SYNC_DOWNLOAD_NOTE, async (_, cloudNoteId: string) => {
+  ipcMain.handle(IPC_CHANNELS.SYNC_DOWNLOAD_NOTE, async (_, cloudNoteId: string, localPath?: string) => {
     try {
-      logger.info('sync', 'IPC: Downloading note', { cloudNoteId });
-      const syncEngine = getSyncEngine();
-      const result = await syncEngine.downloadNote(cloudNoteId);
-      logger.info('sync', 'IPC: Note download completed', { cloudNoteId, success: result.success });
-      return result;
+      logger.info('sync', 'IPC: Downloading note', { cloudNoteId, localPath });
+      
+      // 创建临时下载路径
+      const tempDir = await import('os').then(os => os.tmpdir());
+      const tempFilePath = path.join(tempDir, `${cloudNoteId}.note.download`);
+
+      // 从OneDrive下载文件
+      const client = getOneDriveClient();
+      await client.downloadFile(cloudNoteId, tempFilePath);
+
+      // 读取下载的内容
+      const content = await fs.readFile(tempFilePath, 'utf-8');
+      const note = JSON.parse(content);
+
+      // 如果提供了本地路径，保存到指定位置
+      if (localPath) {
+        await fs.writeFile(localPath, content, 'utf-8');
+        logger.info('sync', 'IPC: Note saved to local path', { cloudNoteId, localPath });
+      }
+
+      // 清理临时文件
+      await fs.unlink(tempFilePath).catch(() => {});
+
+      logger.info('sync', 'IPC: Note download completed', { cloudNoteId, success: true });
+      return { success: true, localId: note.id, content };
     } catch (error) {
       logger.error('sync', 'IPC: Note download failed', error as Error, { cloudNoteId });
-      throw error;
+      return { success: false, error: (error as Error).message };
     }
   });
 

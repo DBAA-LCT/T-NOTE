@@ -52,7 +52,7 @@ try {
 
 // OAuth 2.0 Configuration
 const OAUTH_CONFIG = {
-  clientId: process.env.ONEDRIVE_CLIENT_ID || 'YOUR_CLIENT_ID',
+  clientId: 'b734699f-3727-49ec-8016-12122c78c0a2',
   redirectUri: 'http://localhost:3000/auth/callback',
   authUrl: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
   tokenUrl: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',

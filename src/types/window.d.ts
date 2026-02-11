@@ -52,8 +52,8 @@ export interface ElectronAPI {
     sync: (options?: SyncOptions) => Promise<SyncResult>;
     syncNote: (noteId: string) => Promise<NoteSyncResult>;
     uploadNote: (noteId: string) => Promise<UploadResult>;
-    uploadNoteContent: (noteContent: string, noteName: string) => Promise<UploadResult>;
-    downloadNote: (cloudNoteId: string) => Promise<DownloadResult>;
+    uploadNoteContent: (params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string }) => Promise<UploadResult>;
+    downloadNote: (cloudNoteId: string, localPath?: string) => Promise<DownloadResult>;
     getSyncStatus: (noteId: string) => Promise<SyncStatus>;
     cancelSync: () => Promise<void>;
     

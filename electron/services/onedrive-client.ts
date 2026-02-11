@@ -64,9 +64,13 @@ export class OneDriveClient {
 
       // Build headers
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
         ...options.headers,
       };
+
+      // Set default Content-Type only if not already set
+      if (!headers['Content-Type'] && !headers['content-type']) {
+        headers['Content-Type'] = 'application/json';
+      }
 
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
@@ -82,8 +86,19 @@ export class OneDriveClient {
       if (options.body) {
         if (typeof options.body === 'string') {
           fetchOptions.body = options.body;
+          logger.debug('api', 'Body type: string', { length: options.body.length });
+        } else if (Buffer.isBuffer(options.body)) {
+          // For file uploads, send Buffer directly (convert to Uint8Array for fetch compatibility)
+          fetchOptions.body = new Uint8Array(options.body) as any;
+          logger.debug('api', 'Body type: Buffer', { length: options.body.length });
+        } else if (options.body instanceof Uint8Array) {
+          // For binary data
+          fetchOptions.body = options.body as any;
+          logger.debug('api', 'Body type: Uint8Array', { length: options.body.length });
         } else {
+          // For JSON data
           fetchOptions.body = JSON.stringify(options.body);
+          logger.debug('api', 'Body type: JSON', { length: fetchOptions.body.length });
         }
       }
 
@@ -448,6 +463,12 @@ export class OneDriveClient {
     
     // Read file content
     const fileContent = await fs.readFile(localFilePath);
+    
+    logger.info('api', `Read file for upload`, { 
+      localFilePath, 
+      fileSize: fileContent.length,
+      isBuffer: Buffer.isBuffer(fileContent)
+    });
 
     // Build the endpoint
     // Remove leading slash if present
@@ -465,7 +486,10 @@ export class OneDriveClient {
       body: fileContent as any,
     });
 
-    logger.info('api', `Successfully uploaded file: ${remotePath}`);
+    logger.info('api', `Successfully uploaded file: ${remotePath}`, {
+      uploadedSize: response.size,
+      driveItemId: response.id
+    });
 
     return response;
   }

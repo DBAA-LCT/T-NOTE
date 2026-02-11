@@ -97,12 +97,14 @@ export interface NoteSyncResult {
 export interface UploadResult {
   success: boolean;
   cloudId?: string;
+  fileName?: string;
   error?: string;
 }
 
 export interface DownloadResult {
   success: boolean;
   localId?: string;
+  content?: string;
   error?: string;
 }
 

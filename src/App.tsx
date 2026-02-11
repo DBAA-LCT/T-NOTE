@@ -11,6 +11,7 @@ import BookmarkPanel from './components/BookmarkPanel';
 import TrashPanel from './components/TrashPanel';
 import OneDriveSettingsPanel from './components/OneDriveSettingsPanel';
 import CloudPagesPanel from './components/CloudPagesPanel';
+import CloudNotesPanel from './components/CloudNotesPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -757,24 +758,14 @@ function App() {
   const updateNoteName = async (name: string) => {
     if (!note) return;
     
-    // 如果有文件路径，尝试重命名文件
-    if (currentFilePath) {
-      const newPath = await window.electronAPI.renameFile(currentFilePath, name);
-      if (newPath) {
-        setCurrentFilePath(newPath);
-        message.success('笔记名和文件名已同步更新');
-      } else {
-        message.warning('文件重命名失败，可能文件名已存在');
-        return; // 如果重命名失败，不更新笔记名
-      }
-    }
-    
+    // 只更新笔记名，不再同步修改文件名
     setNote(prev => prev ? ({
       ...prev,
       name,
       updatedAt: Date.now()
     }) : null);
     setHasUnsavedChanges(true);
+    message.success('笔记名已更新');
   };
 
   const renderSidePanel = () => {
@@ -851,6 +842,11 @@ function App() {
             });
           }
         }} />;
+      case 'cloudlist':
+        return <CloudNotesPanel onNoteDownloaded={() => {
+          // 笔记下载后的回调
+          message.success('可以通过"打开"菜单打开下载的笔记');
+        }} />;
       default:
         return null;
     }
@@ -862,11 +858,25 @@ function App() {
         noteName={note?.name || '新建笔记'}
         hasNote={note !== null}
         hasUnsavedChanges={hasUnsavedChanges}
+        currentNote={note}
+        currentFilePath={currentFilePath}
         onSave={saveNote}
         onSaveAs={saveAsNote}
         onOpen={openNote}
         onCreateNew={createNewNote}
         onUpdateNoteName={updateNoteName}
+        onUploadSuccess={() => {
+          // 上传成功后重新加载笔记
+          if (currentFilePath) {
+            window.electronAPI.readFile(currentFilePath).then(result => {
+              if (result.success && result.content) {
+                const loadedNote = JSON.parse(result.content);
+                setNote(loadedNote);
+                message.success('笔记已上传到云端');
+              }
+            });
+          }
+        }}
       />
       
       <Layout style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>

@@ -7,11 +7,12 @@ import {
   BookOutlined,
   DeleteOutlined,
   CloudOutlined,
+  CloudServerOutlined,
   SettingOutlined
 } from '@ant-design/icons';
 import './IconBar.css';
 
-export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'onedrive' | 'cloudnotes' | null;
+export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'onedrive' | 'cloudnotes' | 'cloudlist' | null;
 
 interface IconBarProps {
   activeTab: IconBarTab;
@@ -75,12 +76,21 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
         </div>
       </Tooltip>
 
-      <Tooltip title="云笔记" placement="right">
+      <Tooltip title="云端页面" placement="right">
         <div 
           className={`icon-item ${activeTab === 'cloudnotes' ? 'active' : ''}`}
           onClick={() => handleIconClick('cloudnotes')}
         >
           <CloudOutlined />
+        </div>
+      </Tooltip>
+
+      <Tooltip title="云端笔记" placement="right">
+        <div 
+          className={`icon-item ${activeTab === 'cloudlist' ? 'active' : ''}`}
+          onClick={() => handleIconClick('cloudlist')}
+        >
+          <CloudServerOutlined />
         </div>
       </Tooltip>
 

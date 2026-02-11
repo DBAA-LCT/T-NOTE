@@ -285,6 +285,43 @@ ipcMain.handle('rename-file', async (_, oldPath: string, newName: string) => {
     } catch {
       // 文件不存在，可以重命名
       await fs.rename(oldPath, newPath);
+      
+      // 如果笔记启用了云端同步，同步重命名云端文件
+      try {
+        const content = await fs.readFile(newPath, 'utf-8');
+        const note = JSON.parse(content);
+        
+        if (note.syncConfig?.enabled && note.syncMetadata?.cloudId) {
+          const { getOneDriveClient } = require('./services/onedrive-client');
+          const { getSettingsManager } = require('./services/settings-manager');
+          
+          const client = getOneDriveClient();
+          const settingsManager = getSettingsManager();
+          const syncFolder = settingsManager.getSyncFolder();
+          
+          if (syncFolder) {
+            // 上传新文件名到云端（会覆盖旧文件）
+            const newFileName = path.basename(newPath);
+            const remotePath = `${syncFolder}/${newFileName}`;
+            
+            // 创建临时文件
+            const tempDir = await import('os').then(os => os.tmpdir());
+            const tempFilePath = path.join(tempDir, newFileName);
+            await fs.writeFile(tempFilePath, content, 'utf-8');
+            
+            try {
+              await client.uploadFile(tempFilePath, remotePath);
+              console.log('云端文件已同步重命名:', newFileName);
+            } finally {
+              await fs.unlink(tempFilePath).catch(() => {});
+            }
+          }
+        }
+      } catch (error) {
+        console.error('同步云端重命名失败:', error);
+        // 不影响本地重命名的成功
+      }
+      
       return newPath;
     }
   } catch (error) {

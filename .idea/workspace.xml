@@ -2,17 +2,23 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/ipc/handlers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ipc/handlers.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/preload.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/preload.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/services/auth-manager.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/auth-manager.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/services/onedrive-client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/onedrive-client.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/Editor.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Editor.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/IconBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/IconBar.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/TopBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/TopBar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/onedrive-sync.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/onedrive-sync.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/window.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/window.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/内存优化方案.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/图标配置说明.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/完成总结.md" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -121,8 +127,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.138" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.138" />
+        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.240" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.240" />
       </set>
     </attachedChunks>
   </component>
@@ -139,6 +145,7 @@
       <workItem from="1770619890882" duration="2132000" />
       <workItem from="1770626054138" duration="4297000" />
       <workItem from="1770781978244" duration="12619000" />
+      <workItem from="1770815780693" duration="4543000" />
     </task>
     <servers />
   </component>
