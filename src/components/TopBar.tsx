@@ -1,9 +1,9 @@
 import { Button, Typography, Input, Space, Tag } from 'antd';
-import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
+import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined, CloudUploadOutlined, DownloadOutlined, CloudOutlined, CloseOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import OneDriveSyncButton from './OneDriveSyncButton';
 import OfflineModeIndicator from './OfflineModeIndicator';
-import UploadToCloudButton from './UploadToCloudButton';
+import UploadToCloudButton, { type CloudProvider } from './UploadToCloudButton';
 import type { Note } from '../types';
 
 const { Title } = Typography;
@@ -19,7 +19,12 @@ interface TopBarProps {
   onOpen: () => void;
   onCreateNew: () => void;
   onUpdateNoteName: (name: string) => void;
-  onUploadSuccess?: () => void;
+  onUploadSuccess?: (cloudSource: { provider: CloudProvider; cloudFileId: string | number; cloudPath?: string; cloudMtime: number }) => void;
+  isPreviewMode?: boolean;
+  onSaveToCloud?: () => void;
+  onSaveToLocal?: () => void;
+  onCloseNote?: () => void;
+  cloudSaving?: boolean;
 }
 
 export default function TopBar({ 
@@ -33,7 +38,12 @@ export default function TopBar({
   onOpen, 
   onCreateNew, 
   onUpdateNoteName,
-  onUploadSuccess
+  onUploadSuccess,
+  isPreviewMode,
+  onSaveToCloud,
+  onSaveToLocal,
+  onCloseNote,
+  cloudSaving,
 }: TopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(noteName);
@@ -65,13 +75,14 @@ export default function TopBar({
   return (
     <div style={{ 
       height: 48,
-      background: '#fff',
-      borderBottom: '1px solid #e8e8e8',
+      background: isPreviewMode ? '#e6f4ff' : '#fff',
+      borderBottom: isPreviewMode ? '1px solid #91caff' : '1px solid #e8e8e8',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      transition: 'background 0.3s',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {!hasNote ? (
@@ -90,30 +101,29 @@ export default function TopBar({
             onBlur={handleFinishEdit}
             onKeyDown={handleKeyDown}
             autoFocus
-            style={{ 
-              fontSize: 16,
-              fontWeight: 500,
-              maxWidth: 400
-            }}
+            style={{ fontSize: 16, fontWeight: 500, maxWidth: 400 }}
           />
         ) : (
           <div 
             style={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              cursor: 'pointer',
-              padding: '4px 8px',
-              borderRadius: 4,
-              transition: 'background 0.3s'
+              display: 'flex', alignItems: 'center', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: 4, transition: 'background 0.3s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+            onMouseEnter={(e) => e.currentTarget.style.background = isPreviewMode ? '#bae0ff' : '#f5f5f5'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             onClick={handleStartEdit}
           >
-            <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+            {isPreviewMode ? (
+              <CloudOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+            ) : (
+              <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+            )}
             <Title level={5} style={{ margin: 0, color: '#1677ff' }}>
               {noteName}
             </Title>
+            {isPreviewMode && (
+              <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>云端</Tag>
+            )}
             <EditOutlined style={{ marginLeft: 8, fontSize: 12, color: '#8c8c8c' }} />
           </div>
         )}
@@ -122,34 +132,72 @@ export default function TopBar({
       <Space size={12}>
         <OfflineModeIndicator />
         
-        {/* 如果笔记未启用云端同步，显示上传按钮 */}
-        {hasNote && currentNote && !currentNote.syncConfig?.enabled && (
-          <UploadToCloudButton
-            noteId={currentNote.id}
-            noteName={currentNote.name}
-            noteContent={JSON.stringify(currentNote, null, 2)}
-            currentFilePath={currentFilePath || undefined}
-            onUploadSuccess={onUploadSuccess}
-          />
-        )}
-        
-        {/* 如果笔记已启用云端同步，显示同步按钮 */}
-        {hasNote && currentNote?.syncConfig?.enabled && (
-          <OneDriveSyncButton />
-        )}
-        
-        {hasNote && hasUnsavedChanges && (
+        {isPreviewMode ? (
           <>
-            <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
-              未保存
-            </Tag>
-            <Button 
-              type="primary" 
-              icon={<SaveOutlined />}
-              onClick={onSave}
+            {hasUnsavedChanges && (
+              <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
+                有修改
+              </Tag>
+            )}
+            <Button
+              icon={<CloudUploadOutlined />}
+              onClick={onSaveToCloud}
+              loading={cloudSaving}
             >
-              保存
+              保存到云端
             </Button>
+            <Button
+              type="primary"
+              icon={<DownloadOutlined />}
+              onClick={onSaveToLocal}
+            >
+              保存到本地
+            </Button>
+            <Button
+              icon={<CloseOutlined />}
+              onClick={onCloseNote}
+              title="关闭笔记"
+            />
+          </>
+        ) : (
+          <>
+            {hasNote && currentNote && !currentNote.syncConfig?.enabled && (
+              <UploadToCloudButton
+                noteId={currentNote.id}
+                noteName={currentNote.name}
+                noteContent={JSON.stringify(currentNote, null, 2)}
+                currentFilePath={currentFilePath || undefined}
+                cloudSource={currentNote.cloudSource}
+                onUploadSuccess={onUploadSuccess}
+              />
+            )}
+            
+            {hasNote && currentNote?.syncConfig?.enabled && (
+              <OneDriveSyncButton />
+            )}
+            
+            {hasNote && hasUnsavedChanges && (
+              <>
+                <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '4px 12px' }}>
+                  未保存
+                </Tag>
+                <Button 
+                  type="primary" 
+                  icon={<SaveOutlined />}
+                  onClick={onSave}
+                >
+                  保存
+                </Button>
+              </>
+            )}
+
+            {hasNote && (
+              <Button
+                icon={<CloseOutlined />}
+                onClick={onCloseNote}
+                title="关闭笔记"
+              />
+            )}
           </>
         )}
       </Space>

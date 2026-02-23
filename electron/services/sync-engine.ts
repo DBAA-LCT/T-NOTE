@@ -330,7 +330,7 @@ export class SyncEngine {
         return { status: 'success', message: 'Note uploaded successfully' };
       } else if (cloudNote.updatedAt > localNote.updatedAt) {
         // Cloud is newer - download
-        await this.downloadNote(cloudNote.id);
+        await this.downloadNote(cloudNote.driveItemId || cloudNote.id);
         this.setSyncStatus(noteId, 'synced');
         return { status: 'success', message: 'Note downloaded successfully' };
       } else {
@@ -532,13 +532,13 @@ export class SyncEngine {
       const localNotes = await this.fileManager.getAllNotes();
       const localIds = new Set(localNotes.map(n => n.id));
 
-      // Map to CloudNote format
+      // Map to CloudNote format — use driveItemId as id so download API works
       const cloudNotes: CloudNote[] = cloudNotesData.map(note => ({
-        id: note.id,
+        id: note.driveItemId || note.id,
         name: note.name,
         updatedAt: note.updatedAt,
-        size: 0, // Size will be fetched separately if needed
-        existsLocally: localIds.has(note.id)
+        size: note.size || 0,
+        existsLocally: localIds.has(note.id),
       }));
 
       logger.info('sync', 'Cloud notes list fetched', { count: cloudNotes.length });
@@ -567,17 +567,17 @@ export class SyncEngine {
 
       // Map to CloudNoteData
       const cloudNotes: CloudNoteData[] = noteFiles.map(item => {
-        // Extract note ID from filename
+        // Extract note ID from filename (for sync matching)
         const noteId = item.name.replace('.note', '');
-        
-        // Parse timestamp
         const updatedAt = new Date(item.lastModifiedDateTime).getTime();
 
         return {
           id: noteId,
           name: item.name,
           content: '', // Content will be fetched when needed
-          updatedAt
+          updatedAt,
+          size: item.size,
+          driveItemId: item.id,
         };
       });
 
@@ -747,7 +747,7 @@ export class SyncEngine {
     for (const cloudNote of cloudNotes) {
       try {
         this.setSyncStatus(cloudNote.id, 'syncing');
-        const downloadResult = await this.downloadNote(cloudNote.id);
+        const downloadResult = await this.downloadNote(cloudNote.driveItemId || cloudNote.id);
         
         if (downloadResult.success) {
           result.downloaded++;
@@ -856,7 +856,7 @@ export class SyncEngine {
           // Cloud is newer - download
           try {
             this.setSyncStatus(localNote.id, 'syncing');
-            const downloadResult = await this.downloadNote(cloudNote.id);
+            const downloadResult = await this.downloadNote(cloudNote.driveItemId || cloudNote.id);
             
             if (downloadResult.success) {
               result.downloaded++;
@@ -886,7 +886,7 @@ export class SyncEngine {
         // Cloud note doesn't exist locally - download
         try {
           this.setSyncStatus(cloudNote.id, 'syncing');
-          const downloadResult = await this.downloadNote(cloudNote.id);
+          const downloadResult = await this.downloadNote(cloudNote.driveItemId || cloudNote.id);
           
           if (downloadResult.success) {
             result.downloaded++;

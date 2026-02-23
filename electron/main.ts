@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { registerSyncHandlers } from './ipc/handlers';
+import { registerBaiduPanHandlers } from './ipc/baidupan-handlers';
 import { logger } from './utils/logger';
 
 let mainWindow: BrowserWindow | null = null;
@@ -134,6 +135,10 @@ function createWindow() {
   // Register OneDrive sync IPC handlers
   registerSyncHandlers(mainWindow);
   logger.info('general', 'OneDrive sync handlers registered');
+
+  // Register Baidu Pan IPC handlers
+  registerBaiduPanHandlers(mainWindow);
+  logger.info('general', 'Baidu Pan handlers registered');
 }
 
 app.whenReady().then(async () => {
@@ -346,4 +351,98 @@ ipcMain.handle('read-file', async (_, filePath: string) => {
     console.error('读取文件失败:', error);
     return { success: false, error: String(error) };
   }
+});
+
+// ============================================================================
+// 最近笔记
+// ============================================================================
+
+ipcMain.handle('recent-notes:get', async () => {
+  const { getSettingsManager } = require('./services/settings-manager');
+  return getSettingsManager().getRecentNotes();
+});
+
+ipcMain.handle('recent-notes:add', async (_, filePath: string, name: string) => {
+  const { getSettingsManager } = require('./services/settings-manager');
+  await getSettingsManager().addRecentNote(filePath, name);
+});
+
+ipcMain.handle('recent-notes:remove', async (_, filePath: string) => {
+  const { getSettingsManager } = require('./services/settings-manager');
+  await getSettingsManager().removeRecentNote(filePath);
+});
+
+ipcMain.handle('recent-notes:clear', async () => {
+  const { getSettingsManager } = require('./services/settings-manager');
+  await getSettingsManager().clearRecentNotes();
+});
+
+// 在新窗口中打开笔记
+ipcMain.handle('open-note-in-new-window', async (_, filePath: string) => {
+  const newWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    title: 'T-Note',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  // 创建菜单（复用同样的模板）
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: '文件',
+      submenu: [
+        { label: '打开', accelerator: 'CmdOrCtrl+O', click: () => newWindow.webContents.send('menu-open') },
+        { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => newWindow.webContents.send('menu-save') },
+        { label: '另存为', accelerator: 'CmdOrCtrl+Shift+S', click: () => newWindow.webContents.send('menu-save-as') },
+        { type: 'separator' },
+        { label: '退出', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+      ],
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { label: '撤销', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: '重做', accelerator: 'CmdOrCtrl+Y', role: 'redo' },
+        { type: 'separator' },
+        { label: '剪切', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: '复制', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: '粘贴', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { type: 'separator' },
+        { label: '全选', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
+      ],
+    },
+    {
+      label: '视图',
+      submenu: [
+        { label: '刷新', accelerator: 'CmdOrCtrl+R', click: () => newWindow.webContents.reload() },
+        { type: 'separator' },
+        { label: '开发者工具', accelerator: 'CmdOrCtrl+Shift+I', click: () => newWindow.webContents.openDevTools() },
+      ],
+    },
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  newWindow.setMenu(menu);
+
+  if (process.env.NODE_ENV === 'development') {
+    newWindow.loadURL('http://localhost:5173');
+  } else {
+    newWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+  }
+
+  // Note: IPC handlers are global (ipcMain.handle) and already registered in createWindow().
+  // New windows share the same handlers — no need to register again.
+
+  // 等待页面加载完成后发送文件路径
+  newWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      newWindow.webContents.send('open-file-from-system', filePath);
+    }, 500);
+  });
+
+  return { success: true };
 });

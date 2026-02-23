@@ -149,7 +149,7 @@ export function registerSyncHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Upload note content directly (for current note in editor)
-  ipcMain.handle('onedrive:sync:uploadNoteContent', async (_, { noteContent, noteName, noteId, currentFilePath }: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string }) => {
+  ipcMain.handle('onedrive:sync:uploadNoteContent', async (_, { noteContent, noteName, noteId, currentFilePath, cloudSource }: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string; cloudSource?: { provider: string; cloudFileId: string | number; cloudPath?: string } }) => {
     try {
       logger.info('sync', 'IPC: Uploading note content', { noteName, noteId, contentLength: noteContent.length });
       
@@ -201,10 +201,22 @@ export function registerSyncHandlers(mainWindow: BrowserWindow): void {
       try {
         // Upload to OneDrive
         const client = getOneDriveClient();
-        const remotePath = `${syncFolder}/${fileName}`;
-        logger.info('sync', 'Uploading to OneDrive', { remotePath });
-        
-        const driveItem = await client.uploadFile(tempFilePath, remotePath);
+        let driveItem: any;
+
+        // 如果有 cloudSource 且是 OneDrive，使用原有的 driveItemId 覆盖
+        if (cloudSource && cloudSource.provider === 'onedrive' && cloudSource.cloudFileId) {
+          const itemId = String(cloudSource.cloudFileId);
+          logger.info('sync', 'Overwriting existing OneDrive file', { itemId });
+          driveItem = await client.request(`/me/drive/items/${itemId}/content`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: Buffer.from(noteContent, 'utf-8'),
+          });
+        } else {
+          const remotePath = `${syncFolder}/${fileName}`;
+          logger.info('sync', 'Uploading to OneDrive', { remotePath });
+          driveItem = await client.uploadFile(tempFilePath, remotePath);
+        }
 
         logger.info('sync', 'IPC: Note content uploaded successfully', { 
           noteId, 
@@ -610,8 +622,26 @@ export function registerSyncHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // ============================================================================
+  // Delete Cloud Note Handler
+  // ============================================================================
+
+  ipcMain.handle('onedrive:cloud:deleteNote', async (_, driveItemId: string) => {
+    try {
+      logger.info('sync', 'IPC: Deleting cloud note', { driveItemId });
+      const client = getOneDriveClient();
+      await client.delete(`/me/drive/items/${driveItemId}`);
+      logger.info('sync', 'IPC: Cloud note deleted', { driveItemId });
+      return { success: true };
+    } catch (error) {
+      logger.error('sync', 'IPC: Delete cloud note failed', error as Error, { driveItemId });
+      throw error;
+    }
+  });
+
   logger.info('general', 'All OneDrive sync IPC handlers registered successfully');
 }
+
 
 /**
  * Unregister all OneDrive sync IPC handlers

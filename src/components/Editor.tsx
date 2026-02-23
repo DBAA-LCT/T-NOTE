@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Layout, Input, Tag, Space, Button, Empty, Popover, List, Popconfirm, message, Modal, Dropdown, Select, DatePicker, Checkbox, Typography } from 'antd';
-import { PlusOutlined, BookOutlined, DeleteOutlined, PushpinOutlined, PushpinFilled, EditOutlined, CheckSquareOutlined, FlagOutlined } from '@ant-design/icons';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
+import { Layout, Input, Tag, Space, Button, Empty, Popover, List, Popconfirm, message, Modal, Dropdown, Select, DatePicker, Checkbox, Typography, InputNumber } from 'antd';
+import { PlusOutlined, BookOutlined, DeleteOutlined, PushpinOutlined, PushpinFilled, EditOutlined, CheckSquareOutlined, FlagOutlined, TableOutlined, SearchOutlined, CloseOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -98,6 +98,10 @@ try {
   console.log('⚠️ Todo format already registered');
 }
 
+// Table functionality - using simple HTML table insertion
+// Note: quill-better-table has compatibility issues with Quill 2.0
+console.log('✅ Table support enabled (HTML mode)');
+
 interface EditorProps {
   page?: Page;
   onUpdatePage: (updates: Partial<Page>) => void;
@@ -154,6 +158,20 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   
   const quillRef = useRef<ReactQuill>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  // 搜索替换相关状态
+  const [showSearch, setShowSearch] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [searchMatches, setSearchMatches] = useState<{ index: number; length: number }[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(-1);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [tablePopoverOpen, setTablePopoverOpen] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
 
   // 暴露跳转方法给父组件
   useImperativeHandle(ref, () => ({
@@ -688,6 +706,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // 如果搜索栏打开，ESC 关闭搜索栏（由搜索的 useEffect 处理）
+        if (showSearch) return;
+        
         const selection = quill.getSelection();
         if (selection && selection.length > 0) {
           // 清除选中文本的所有格式
@@ -710,8 +731,224 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     return () => {
       editorElement.removeEventListener('keydown', handleKeyDown);
     };
-  }, [page?.id]);
+  }, [page?.id, showSearch]);
 
+  // ============================================================================
+  // 搜索替换功能
+  // ============================================================================
+
+  // Ctrl+F / Ctrl+H 快捷键
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+        setShowReplace(false);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      if (e.ctrlKey && e.key === 'h') {
+        e.preventDefault();
+        setShowSearch(true);
+        setShowReplace(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      if (e.key === 'Escape' && showSearch) {
+        closeSearch();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSearch]);
+
+  // 执行搜索
+  const doSearch = useCallback((text: string, matchCase: boolean) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill || !text) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(-1);
+      // 清除高亮
+      clearSearchHighlights();
+      return;
+    }
+
+    const content = quill.getText();
+    const searchStr = matchCase ? text : text.toLowerCase();
+    const contentStr = matchCase ? content : content.toLowerCase();
+    const matches: { index: number; length: number }[] = [];
+    let startIdx = 0;
+
+    while (startIdx < contentStr.length) {
+      const idx = contentStr.indexOf(searchStr, startIdx);
+      if (idx === -1) break;
+      matches.push({ index: idx, length: text.length });
+      startIdx = idx + 1;
+    }
+
+    setSearchMatches(matches);
+    if (matches.length > 0) {
+      setCurrentMatchIndex(0);
+      highlightMatches(matches, 0);
+      quill.setSelection(matches[0].index, matches[0].length);
+    } else {
+      setCurrentMatchIndex(-1);
+      clearSearchHighlights();
+    }
+  }, []);
+
+  const clearSearchHighlights = () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    const len = quill.getLength();
+    quill.formatText(0, len, 'background', false, 'silent');
+  };
+
+  const highlightMatches = (matches: { index: number; length: number }[], activeIdx: number) => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    // 先清除所有高亮
+    const len = quill.getLength();
+    quill.formatText(0, len, 'background', false, 'silent');
+    // 高亮所有匹配
+    matches.forEach((m, i) => {
+      quill.formatText(m.index, m.length, 'background', i === activeIdx ? '#ff9632' : '#fff3b0', 'silent');
+    });
+  };
+
+  const goToMatch = (direction: 'next' | 'prev') => {
+    if (searchMatches.length === 0) return;
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    let newIdx: number;
+    if (direction === 'next') {
+      newIdx = (currentMatchIndex + 1) % searchMatches.length;
+    } else {
+      newIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    }
+    setCurrentMatchIndex(newIdx);
+    highlightMatches(searchMatches, newIdx);
+    const m = searchMatches[newIdx];
+    quill.setSelection(m.index, m.length);
+    // 滚动到视图
+    const bounds = quill.getBounds(m.index);
+    if (bounds && quill.root.parentElement) {
+      quill.root.parentElement.scrollTop = Math.max(0, bounds.top - 150);
+    }
+  };
+
+  const handleReplace = () => {
+    if (searchMatches.length === 0 || currentMatchIndex < 0) return;
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const m = searchMatches[currentMatchIndex];
+    quill.deleteText(m.index, m.length, 'user');
+    quill.insertText(m.index, replaceText, 'user');
+    // 重新搜索
+    doSearch(searchText, caseSensitive);
+  };
+
+  const handleReplaceAll = () => {
+    if (searchMatches.length === 0) return;
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    // 从后往前替换，避免索引偏移
+    const sorted = [...searchMatches].sort((a, b) => b.index - a.index);
+    sorted.forEach(m => {
+      quill.deleteText(m.index, m.length, 'user');
+      quill.insertText(m.index, replaceText, 'user');
+    });
+    message.success(`已替换 ${sorted.length} 处`);
+    doSearch(searchText, caseSensitive);
+  };
+
+  const closeSearch = () => {
+    setShowSearch(false);
+    setShowReplace(false);
+    setSearchText('');
+    setReplaceText('');
+    setSearchMatches([]);
+    setCurrentMatchIndex(-1);
+    clearSearchHighlights();
+  };
+
+  // searchText 变化时自动搜索
+  useEffect(() => {
+    if (showSearch) {
+      doSearch(searchText, caseSensitive);
+    }
+  }, [searchText, caseSensitive, showSearch, doSearch]);
+
+  // ============================================================================
+  // 图片复制修复
+  // ============================================================================
+  useEffect(() => {
+    const editor = editorContainerRef.current;
+    if (!editor) return;
+
+    const handleCopy = (e: ClipboardEvent) => {
+      const quill = quillRef.current?.getEditor();
+      if (!quill) return;
+
+      const selection = quill.getSelection();
+      if (!selection || selection.length === 0) return;
+
+      // 获取选中内容的 HTML
+      const contents = quill.getContents(selection.index, selection.length);
+      let hasImage = false;
+      contents.ops?.forEach((op: any) => {
+        if (op.insert?.image) hasImage = true;
+      });
+
+      if (hasImage) {
+        // 获取选中区域的 HTML
+        const tempContainer = document.createElement('div');
+        const tempQuill = new Quill(tempContainer);
+        tempQuill.setContents(contents);
+        const html = tempQuill.root.innerHTML;
+
+        e.clipboardData?.setData('text/html', html);
+        e.clipboardData?.setData('text/plain', quill.getText(selection.index, selection.length));
+        e.preventDefault();
+      }
+    };
+
+    editor.addEventListener('copy', handleCopy);
+    return () => editor.removeEventListener('copy', handleCopy);
+  }, []);
+
+  // ============================================================================
+  // 表格插入
+  // ============================================================================
+  const insertTable = () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    // 使用简单的 HTML 表格插入
+    const selection = quill.getSelection();
+    const index = selection ? selection.index : quill.getLength();
+    
+    // 生成表格 HTML
+    let tableHTML = '<table style="border-collapse: collapse; width: 100%; margin: 1em 0;">';
+    for (let i = 0; i < tableRows; i++) {
+      tableHTML += '<tr>';
+      for (let j = 0; j < tableCols; j++) {
+        const tag = i === 0 ? 'th' : 'td';
+        tableHTML += `<${tag} style="border: 1px solid #ddd; padding: 8px 12px; min-width: 50px;">${i === 0 ? `列${j + 1}` : ''}</${tag}>`;
+      }
+      tableHTML += '</tr>';
+    }
+    tableHTML += '</table><p><br></p>';
+    
+    // 插入表格
+    const delta = quill.clipboard.convert({ html: tableHTML });
+    quill.updateContents(delta, 'user');
+    quill.setSelection(index + delta.length(), 0);
+    
+    setTablePopoverOpen(false);
+    message.success(`已插入 ${tableRows}×${tableCols} 表格`);
+  };
 
 
   if (!page) {
@@ -1938,7 +2175,89 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
               {page.markerPosition !== undefined ? <PushpinFilled /> : <PushpinOutlined />}
             </button>
           </div>
+          {/* 表格插入 */}
+          <div className="ql-formats">
+            <Popover
+              content={
+                <div style={{ width: 200 }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                    <span style={{ fontSize: 13 }}>行:</span>
+                    <InputNumber min={1} max={20} value={tableRows} onChange={v => setTableRows(v || 3)} size="small" style={{ width: 60 }} />
+                    <span style={{ fontSize: 13 }}>列:</span>
+                    <InputNumber min={1} max={10} value={tableCols} onChange={v => setTableCols(v || 3)} size="small" style={{ width: 60 }} />
+                  </div>
+                  <Button type="primary" size="small" block onClick={insertTable}>
+                    插入 {tableRows}×{tableCols} 表格
+                  </Button>
+                </div>
+              }
+              title="插入表格"
+              trigger="click"
+              open={tablePopoverOpen}
+              onOpenChange={setTablePopoverOpen}
+              placement="bottom"
+            >
+              <button type="button" title="插入表格" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#595959', height: 24, padding: '0 8px', borderRadius: 4, fontSize: 14 }}>
+                <TableOutlined />
+              </button>
+            </Popover>
+          </div>
+          {/* 搜索按钮 */}
+          <div className="ql-formats">
+            <button
+              type="button"
+              title="搜索替换 (Ctrl+F / Ctrl+H)"
+              onClick={() => { setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 50); }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#595959', height: 24, padding: '0 8px', borderRadius: 4, fontSize: 14 }}
+            >
+              <SearchOutlined />
+            </button>
+          </div>
         </div>
+
+        {/* 搜索替换浮动栏 */}
+        {showSearch && (
+          <div className="editor-search-bar">
+            <div className="search-row">
+              <input
+                ref={searchInputRef}
+                value={searchText}
+                onChange={e => setSearchText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.shiftKey ? goToMatch('prev') : goToMatch('next'); }
+                  if (e.key === 'Escape') closeSearch();
+                }}
+                placeholder="搜索..."
+              />
+              <span className="search-count">
+                {searchMatches.length > 0 ? `${currentMatchIndex + 1}/${searchMatches.length}` : '无结果'}
+              </span>
+              <button onClick={() => goToMatch('prev')} title="上一个 (Shift+Enter)"><UpOutlined /></button>
+              <button onClick={() => goToMatch('next')} title="下一个 (Enter)"><DownOutlined /></button>
+              <button
+                onClick={() => setCaseSensitive(!caseSensitive)}
+                title="区分大小写"
+                style={{ fontWeight: caseSensitive ? 700 : 400, color: caseSensitive ? '#1677ff' : undefined, borderColor: caseSensitive ? '#1677ff' : undefined }}
+              >Aa</button>
+              <button onClick={() => setShowReplace(!showReplace)} title="替换">
+                {showReplace ? '收起' : '替换'}
+              </button>
+              <button onClick={closeSearch} title="关闭"><CloseOutlined /></button>
+            </div>
+            {showReplace && (
+              <div className="search-row">
+                <input
+                  value={replaceText}
+                  onChange={e => setReplaceText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleReplace(); if (e.key === 'Escape') closeSearch(); }}
+                  placeholder="替换为..."
+                />
+                <button onClick={handleReplace} title="替换当前">替换</button>
+                <button className="primary" onClick={handleReplaceAll} title="全部替换">全部</button>
+              </div>
+            )}
+          </div>
+        )}
         
         <ReactQuill
           ref={quillRef}

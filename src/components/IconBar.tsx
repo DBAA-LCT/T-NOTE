@@ -8,11 +8,12 @@ import {
   DeleteOutlined,
   CloudOutlined,
   CloudServerOutlined,
-  SettingOutlined
+  SettingOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import './IconBar.css';
 
-export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'onedrive' | 'cloudnotes' | 'cloudlist' | null;
+export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'settings' | 'cloudnotes' | 'cloudlist' | 'recent' | null;
 
 interface IconBarProps {
   activeTab: IconBarTab;
@@ -31,6 +32,15 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
 
   return (
     <div className="icon-bar">
+      <Tooltip title="最近笔记" placement="right">
+        <div 
+          className={`icon-item ${activeTab === 'recent' ? 'active' : ''}`}
+          onClick={() => handleIconClick('recent')}
+        >
+          <HistoryOutlined />
+        </div>
+      </Tooltip>
+
       <Tooltip title="页面" placement="right">
         <div 
           className={`icon-item ${activeTab === 'pages' ? 'active' : ''}`}
@@ -94,10 +104,10 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
         </div>
       </Tooltip>
 
-      <Tooltip title="OneDrive 设置" placement="right">
+      <Tooltip title="设置" placement="right">
         <div 
-          className={`icon-item ${activeTab === 'onedrive' ? 'active' : ''}`}
-          onClick={() => handleIconClick('onedrive')}
+          className={`icon-item ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => handleIconClick('settings')}
         >
           <SettingOutlined />
         </div>

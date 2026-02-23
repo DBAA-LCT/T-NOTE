@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Layout, message } from 'antd';
+import { Layout, message, Modal, Tag } from 'antd';
 import { Note, Page, TodoItem } from './types';
+import { CloudOutlined } from '@ant-design/icons';
 import Editor, { EditorRef } from './components/Editor';
 import ReadOnlyEditor from './components/ReadOnlyEditor';
 import IconBar, { IconBarTab } from './components/IconBar';
@@ -9,9 +10,12 @@ import SearchPanel from './components/SearchPanel';
 import TodoPanel from './components/TodoPanel';
 import BookmarkPanel from './components/BookmarkPanel';
 import TrashPanel from './components/TrashPanel';
+import SettingsPanel, { SettingsItem } from './components/SettingsPanel';
 import OneDriveSettingsPanel from './components/OneDriveSettingsPanel';
+import BaiduPanSettingsPanel from './components/BaiduPanSettingsPanel';
 import CloudPagesPanel from './components/CloudPagesPanel';
 import CloudNotesPanel from './components/CloudNotesPanel';
+import RecentNotesPanel from './components/RecentNotesPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -25,7 +29,17 @@ function App() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(280);
   const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [activeSettingsItem, setActiveSettingsItem] = useState<SettingsItem | null>(null);
   const editorRef = useRef<EditorRef>(null);
+
+  // 云端预览模式：当从云端加载笔记但未保存到本地时
+  const [previewCloudInfo, setPreviewCloudInfo] = useState<{
+    provider: 'onedrive' | 'baidupan';
+    cloudFileId: string | number;
+    cloudPath?: string;
+    cloudMtime: number;
+  } | null>(null);
+  const isPreviewMode = previewCloudInfo !== null && currentFilePath === null;
   
   // Tab栏和分屏相关状态
   const MAX_TABS = 5; // 最大Tab数量
@@ -50,12 +64,13 @@ function App() {
   // 更新窗口标题
   useEffect(() => {
     if (note && window.electronAPI) {
-      const title = `${note.name} - T-Note${hasUnsavedChanges ? ' *' : ''}`;
-      window.electronAPI.setWindowTitle(title);
+      const prefix = isPreviewMode ? '[预览] ' : '';
+      const suffix = hasUnsavedChanges ? ' *' : '';
+      window.electronAPI.setWindowTitle(`${prefix}${note.name} - T-Note${suffix}`);
     } else if (window.electronAPI) {
       window.electronAPI.setWindowTitle('T-Note');
     }
-  }, [note?.name, hasUnsavedChanges]);
+  }, [note?.name, hasUnsavedChanges, isPreviewMode]);
 
   // 性能监控（仅开发环境）
   useEffect(() => {
@@ -189,6 +204,7 @@ function App() {
       if (filePath) {
         setCurrentFilePath(filePath);
         setHasUnsavedChanges(false);
+        await window.electronAPI.recentNotes.add(filePath, currentNote.name);
         message.success('保存成功！');
       }
     }
@@ -201,6 +217,7 @@ function App() {
     if (filePath) {
       setCurrentFilePath(filePath);
       setHasUnsavedChanges(false);
+      await window.electronAPI.recentNotes.add(filePath, currentNote.name);
       message.success('保存成功！');
     }
   }, []);
@@ -212,9 +229,10 @@ function App() {
       setNote(loadedNote);
       setCurrentPageId(loadedNote.pages[0]?.id || null);
       setCurrentFilePath(result.filePath);
+      setPreviewCloudInfo(null);
       setHasUnsavedChanges(false);
-      // 打开文件后默认展开页面列表
       setActiveTab('pages');
+      await window.electronAPI.recentNotes.add(result.filePath, loadedNote.name);
       message.success('笔记已打开！');
     }
   }, []);
@@ -261,9 +279,10 @@ function App() {
           setNote(loadedNote);
           setCurrentPageId(loadedNote.pages[0]?.id || null);
           setCurrentFilePath(filePath);
+          setPreviewCloudInfo(null);
           setHasUnsavedChanges(false);
-          // 打开文件后默认展开页面列表
           setActiveTab('pages');
+          await window.electronAPI.recentNotes.add(filePath, loadedNote.name);
           message.success('笔记已打开！');
         } else {
           message.error('打开文件失败');
@@ -748,9 +767,10 @@ function App() {
       setNote(newNote);
       setCurrentPageId(null);
       setCurrentFilePath(filePath);
+      setPreviewCloudInfo(null);
       setHasUnsavedChanges(false);
-      // 创建新笔记后默认展开页面列表
       setActiveTab('pages');
+      await window.electronAPI.recentNotes.add(filePath, newNote.name);
       message.success('已创建新笔记！');
     }
   };
@@ -828,8 +848,13 @@ function App() {
             onClearAll={clearTrash}
           />
         );
-      case 'onedrive':
-        return <OneDriveSettingsPanel />;
+      case 'settings':
+        return (
+          <SettingsPanel 
+            activeItem={activeSettingsItem}
+            onSelectItem={setActiveSettingsItem}
+          />
+        );
       case 'cloudnotes':
         return <CloudPagesPanel currentNote={note} onPageUpdate={() => {
           // 重新加载笔记以获取最新数据
@@ -843,12 +868,204 @@ function App() {
           }
         }} />;
       case 'cloudlist':
-        return <CloudNotesPanel onNoteDownloaded={() => {
-          // 笔记下载后的回调
-          message.success('可以通过"打开"菜单打开下载的笔记');
-        }} />;
+        return <CloudNotesPanel
+          currentNote={note}
+          onNoteDeleted={(provider, cloudFileId) => {
+            // 如果删除的是当前预览的笔记，关闭预览
+            if (previewCloudInfo && previewCloudInfo.provider === provider && String(previewCloudInfo.cloudFileId) === String(cloudFileId)) {
+              doCloseNote();
+            }
+          }}
+          onNoteDownloaded={async (info) => {
+            try {
+              const loadedNote = JSON.parse(info.content);
+
+              // 写入云端来源信息
+              loadedNote.cloudSource = {
+                provider: info.provider,
+                cloudFileId: info.cloudFileId,
+                cloudPath: info.cloudPath,
+                cloudMtime: info.cloudMtime,
+                lastSyncedAt: Date.now(),
+              };
+
+              // 进入预览模式：加载到内存，不保存到磁盘
+              setNote(loadedNote);
+              setCurrentPageId(loadedNote.pages?.[0]?.id || null);
+              setCurrentFilePath(null);
+              setPreviewCloudInfo({
+                provider: info.provider,
+                cloudFileId: info.cloudFileId,
+                cloudPath: info.cloudPath,
+                cloudMtime: info.cloudMtime,
+              });
+              setHasUnsavedChanges(false);
+              setActiveTab('pages');
+              // 自动添加第一页到 tab
+              if (loadedNote.pages?.length > 0) {
+                const firstPageId = loadedNote.pages[0].id;
+                setLeftTabs([firstPageId]);
+                setActiveLeftTab(firstPageId);
+                setActiveSide('left');
+              }
+            } catch {
+              message.error('笔记格式解析失败');
+            }
+          }}
+        />;
+      case 'recent':
+        return <RecentNotesPanel
+          onOpenInCurrentWindow={async (filePath) => {
+            try {
+              const result = await window.electronAPI.readFile(filePath);
+              if (result.success && result.content) {
+                const loadedNote = JSON.parse(result.content);
+                setNote(loadedNote);
+                setCurrentPageId(loadedNote.pages[0]?.id || null);
+                setCurrentFilePath(filePath);
+                setPreviewCloudInfo(null);
+                setHasUnsavedChanges(false);
+                setActiveTab('pages');
+                await window.electronAPI.recentNotes.add(filePath, loadedNote.name);
+                if (loadedNote.pages?.length > 0) {
+                  setLeftTabs([loadedNote.pages[0].id]);
+                  setActiveLeftTab(loadedNote.pages[0].id);
+                  setActiveSide('left');
+                }
+                message.success('笔记已打开');
+              } else {
+                message.error('文件读取失败，可能已被移动或删除');
+                await window.electronAPI.recentNotes.remove(filePath);
+              }
+            } catch {
+              message.error('打开笔记失败');
+            }
+          }}
+          onCreateNew={createNewNote}
+          onOpen={openNote}
+        />;
       default:
         return null;
+    }
+  };
+
+  const renderSettingsMainPanel = () => {
+    if (activeTab !== 'settings' || !activeSettingsItem) {
+      return null;
+    }
+
+    switch (activeSettingsItem) {
+      case 'onedrive':
+        return <OneDriveSettingsPanel />;
+      case 'baidupan':
+        return <BaiduPanSettingsPanel />;
+      // 预留其他网盘的设置面板
+      // case 'googledrive':
+      //   return <GoogleDriveSettingsPanel />;
+      // case 'dropbox':
+      //   return <DropboxSettingsPanel />;
+      default:
+        return null;
+    }
+  };
+
+  // ---- 预览模式操作 ----
+
+  const [cloudSaving, setCloudSaving] = useState(false);
+
+  /** 预览模式下保存到云端 */
+  const handleSaveToCloud = async () => {
+    if (!note || !previewCloudInfo) return;
+    setCloudSaving(true);
+    try {
+      const noteJson = JSON.stringify(note, null, 2);
+      const fileName = note.name.endsWith('.note') ? note.name : `${note.name}.note`;
+
+      if (previewCloudInfo.provider === 'baidupan') {
+        await window.electronAPI.baidupan.uploadNote({ noteContent: noteJson, noteName: fileName, cloudPath: previewCloudInfo.cloudPath });
+      } else {
+        await window.electronAPI.onedrive.uploadNoteContent({
+          noteContent: noteJson,
+          noteName: fileName,
+          noteId: note.id,
+          currentFilePath: undefined,
+          cloudSource: { provider: 'onedrive', cloudFileId: previewCloudInfo.cloudFileId, cloudPath: previewCloudInfo.cloudPath },
+        });
+      }
+
+      // 更新 cloudSource
+      const now = Date.now();
+      setNote(prev => prev ? {
+        ...prev,
+        cloudSource: { ...previewCloudInfo, lastSyncedAt: now, cloudMtime: now },
+        updatedAt: now,
+      } : prev);
+      setPreviewCloudInfo(prev => prev ? { ...prev, cloudMtime: now } : prev);
+      setHasUnsavedChanges(false);
+      message.success('已保存到云端');
+    } catch (error: any) {
+      message.error(error.message || '保存到云端失败');
+    } finally {
+      setCloudSaving(false);
+    }
+  };
+
+  /** 预览模式下保存到本地 */
+  const handleSaveToLocal = async () => {
+    if (!note) return;
+    const noteJson = JSON.stringify(note, null, 2);
+    const filePath = await window.electronAPI.saveNote(noteJson, note.name);
+    if (!filePath) return;
+
+    // 保存成功，弹窗问是否从本地打开
+    await window.electronAPI.recentNotes.add(filePath, note.name);
+    Modal.confirm({
+      title: '保存成功',
+      content: '笔记已保存到本地。是否从本地打开此笔记？打开后编辑将直接保存到本地文件。',
+      okText: '从本地打开',
+      cancelText: '继续预览',
+      onOk: () => {
+        setCurrentFilePath(filePath);
+        setPreviewCloudInfo(null);
+        setHasUnsavedChanges(false);
+        setActiveTab('pages');
+        message.success('已切换到本地编辑模式');
+      },
+      onCancel: () => {
+        message.success('笔记已保存到本地');
+      },
+    });
+  };
+
+  /** 关闭笔记，恢复编辑器初始状态 */
+  const handleCloseNote = () => {
+    if (hasUnsavedChanges) {
+      Modal.confirm({
+        title: '关闭笔记？',
+        content: '当前笔记有未保存的修改，关闭后修改将丢失。确定要关闭吗？',
+        okText: '关闭',
+        cancelText: '取消',
+        okButtonProps: { danger: true },
+        onOk: doCloseNote,
+      });
+    } else {
+      doCloseNote();
+    }
+  };
+
+  const doCloseNote = () => {
+    setNote(null);
+    setCurrentPageId(null);
+    setCurrentFilePath(null);
+    setPreviewCloudInfo(null);
+    setHasUnsavedChanges(false);
+    setActiveTab(null);
+    setLeftTabs([]);
+    setRightTabs([]);
+    setActiveLeftTab(null);
+    setActiveRightTab(null);
+    if (window.electronAPI) {
+      window.electronAPI.setWindowTitle('T-Note');
     }
   };
 
@@ -865,18 +1082,32 @@ function App() {
         onOpen={openNote}
         onCreateNew={createNewNote}
         onUpdateNoteName={updateNoteName}
-        onUploadSuccess={() => {
-          // 上传成功后重新加载笔记
-          if (currentFilePath) {
-            window.electronAPI.readFile(currentFilePath).then(result => {
-              if (result.success && result.content) {
-                const loadedNote = JSON.parse(result.content);
-                setNote(loadedNote);
-                message.success('笔记已上传到云端');
-              }
-            });
-          }
+        onUploadSuccess={(cloudSource) => {
+          setNote(prev => {
+            if (!prev) return prev;
+            const updated = {
+              ...prev,
+              cloudSource: {
+                provider: cloudSource.provider,
+                cloudFileId: cloudSource.cloudFileId,
+                cloudPath: cloudSource.cloudPath,
+                cloudMtime: cloudSource.cloudMtime,
+                lastSyncedAt: Date.now(),
+              },
+              updatedAt: Date.now(),
+            };
+            if (currentFilePath) {
+              window.electronAPI.saveNoteToPath(currentFilePath, JSON.stringify(updated, null, 2));
+            }
+            return updated;
+          });
+          setHasUnsavedChanges(false);
         }}
+        isPreviewMode={isPreviewMode}
+        onSaveToCloud={handleSaveToCloud}
+        onSaveToLocal={handleSaveToLocal}
+        onCloseNote={handleCloseNote}
+        cloudSaving={cloudSaving}
       />
       
       <Layout style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
@@ -917,8 +1148,14 @@ function App() {
         )}
         
         <Layout style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* 编辑器区域 */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* 设置主页面区域 */}
+          {activeTab === 'settings' && activeSettingsItem ? (
+            <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
+              {renderSettingsMainPanel()}
+            </div>
+          ) : (
+            /* 编辑器区域 */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* 没有笔记时的提示 */}
             {!note && (
               <div style={{
@@ -1070,6 +1307,27 @@ function App() {
             {/* 有笔记且有页面时显示Tab栏和编辑器 */}
             {note && note.pages.length > 0 && (
               <>
+                {/* 云端编辑提示条 */}
+                {isPreviewMode && (
+                  <div style={{
+                    padding: '4px 16px',
+                    background: '#e6f4ff',
+                    borderBottom: '1px solid #91caff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: 12,
+                    color: '#1677ff',
+                  }}>
+                    <CloudOutlined />
+                    <span>正在编辑云端笔记 — 修改后可保存到云端或本地</span>
+                    {previewCloudInfo && (
+                      <Tag color="blue" style={{ fontSize: 11, marginLeft: 'auto' }}>
+                        {previewCloudInfo.provider === 'baidupan' ? '百度网盘' : 'OneDrive'}
+                      </Tag>
+                    )}
+                  </div>
+                )}
                 {/* 双Tab栏 */}
                 <div style={{ display: 'flex', borderBottom: '1px solid #e0e0e0' }}>
                   {/* 左侧Tab栏 */}
@@ -1180,7 +1438,8 @@ function App() {
                 </div>
               </>
             )}
-          </div>
+            </div>
+          )}
         </Layout>
       </Layout>
     </Layout>

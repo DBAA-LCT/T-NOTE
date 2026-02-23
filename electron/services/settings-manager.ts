@@ -25,6 +25,13 @@ export class SettingsManager {
       wifiOnly: false,
       saveConflictCopy: true,
     },
+    baidupan: {
+      connected: false,
+      userId: null,
+      syncFolder: '/apps/TNote',
+      wifiOnly: false,
+      saveConflictCopy: true,
+    },
   };
 
   constructor() {
@@ -296,6 +303,84 @@ export class SettingsManager {
     this.settings = { ...this.DEFAULT_SETTINGS };
     await this.saveSettings();
     logger.info('general', 'Settings reset to defaults');
+  }
+
+  // ============================================================================
+  // 百度网盘设置
+  // ============================================================================
+
+  getBaiduPanSyncFolder(): string | null {
+    return this.settings?.baidupan?.syncFolder ?? '/apps/TNote';
+  }
+
+  async setBaiduPanSyncFolder(folderPath: string): Promise<void> {
+    if (!this.settings) throw new Error('Settings not initialized');
+    if (!this.settings.baidupan) {
+      this.settings.baidupan = { ...this.DEFAULT_SETTINGS.baidupan! };
+    }
+    this.settings.baidupan.syncFolder = folderPath;
+    await this.saveSettings();
+  }
+
+  getBaiduPanSyncSettings(): { wifiOnly: boolean; saveConflictCopy: boolean; syncFolder: string | null } {
+    const bp = this.settings?.baidupan;
+    return {
+      wifiOnly: bp?.wifiOnly ?? false,
+      saveConflictCopy: bp?.saveConflictCopy ?? true,
+      syncFolder: bp?.syncFolder ?? '/apps/TNote',
+    };
+  }
+
+  async updateBaiduPanSyncSettings(updates: { wifiOnly?: boolean; saveConflictCopy?: boolean; syncFolder?: string }): Promise<void> {
+    if (!this.settings) throw new Error('Settings not initialized');
+    if (!this.settings.baidupan) {
+      this.settings.baidupan = { ...this.DEFAULT_SETTINGS.baidupan! };
+    }
+    if (updates.wifiOnly !== undefined) this.settings.baidupan.wifiOnly = updates.wifiOnly;
+    if (updates.saveConflictCopy !== undefined) this.settings.baidupan.saveConflictCopy = updates.saveConflictCopy;
+    if (updates.syncFolder !== undefined) this.settings.baidupan.syncFolder = updates.syncFolder;
+    await this.saveSettings();
+  }
+
+  // ============================================================================
+  // 最近笔记
+  // ============================================================================
+
+  private readonly MAX_RECENT_NOTES = 20;
+
+  getRecentNotes(): import('../../src/types/onedrive-sync').RecentNoteItem[] {
+    return this.settings?.recentNotes ?? [];
+  }
+
+  async addRecentNote(filePath: string, name: string): Promise<void> {
+    if (!this.settings) throw new Error('Settings not initialized');
+    if (!this.settings.recentNotes) this.settings.recentNotes = [];
+
+    // 移除已有的同路径记录
+    this.settings.recentNotes = this.settings.recentNotes.filter(n => n.filePath !== filePath);
+
+    // 添加到最前面
+    this.settings.recentNotes.unshift({ filePath, name, openedAt: Date.now() });
+
+    // 限制数量
+    if (this.settings.recentNotes.length > this.MAX_RECENT_NOTES) {
+      this.settings.recentNotes = this.settings.recentNotes.slice(0, this.MAX_RECENT_NOTES);
+    }
+
+    await this.saveSettings();
+  }
+
+  async removeRecentNote(filePath: string): Promise<void> {
+    if (!this.settings) throw new Error('Settings not initialized');
+    if (!this.settings.recentNotes) return;
+    this.settings.recentNotes = this.settings.recentNotes.filter(n => n.filePath !== filePath);
+    await this.saveSettings();
+  }
+
+  async clearRecentNotes(): Promise<void> {
+    if (!this.settings) throw new Error('Settings not initialized');
+    this.settings.recentNotes = [];
+    await this.saveSettings();
   }
 }
 

@@ -1,80 +1,200 @@
 import { useState, useEffect } from 'react';
-import { List, Typography, Space, Button, Tag, Spin, Empty, message, Modal, Input } from 'antd';
+import { List, Typography, Space, Button, Tag, Progress, message, Modal, Radio, Popconfirm } from 'antd';
 import {
   CloudOutlined,
-  DownloadOutlined,
   ReloadOutlined,
-  FolderOutlined
+  FolderOutlined,
+  SyncOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
-import type { CloudNote } from '../types/onedrive-sync';
+import type { Note } from '../types';
 
 const { Text } = Typography;
 
-interface CloudNotesPanelProps {
-  onNoteDownloaded?: () => void;
+type CloudProvider = 'onedrive' | 'baidupan';
+
+interface CloudNoteItem {
+  id: string | number;
+  name: string;
+  updatedAt: number;
+  size: number;
+  existsLocally?: boolean;
+  path?: string;
 }
 
-export default function CloudNotesPanel({ onNoteDownloaded }: CloudNotesPanelProps) {
-  const [cloudNotes, setCloudNotes] = useState<CloudNote[]>([]);
+interface ProviderConfig {
+  key: CloudProvider;
+  label: string;
+  color: string;
+  isAuthenticated: () => Promise<boolean>;
+  getCloudNotes: () => Promise<CloudNoteItem[]>;
+  downloadNote: (id: string | number) => Promise<{ success: boolean; content?: string; error?: string }>;
+  deleteNote: (note: CloudNoteItem) => Promise<{ success: boolean }>;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    key: 'onedrive',
+    label: 'OneDrive',
+    color: '#0078D4',
+    isAuthenticated: () => window.electronAPI.onedrive.isAuthenticated(),
+    getCloudNotes: async () => {
+      const notes = await window.electronAPI.onedrive.getCloudNotes();
+      return notes.map(n => ({ id: n.id, name: n.name, updatedAt: n.updatedAt, size: n.size, existsLocally: n.existsLocally }));
+    },
+    downloadNote: async (id) => {
+      const result = await window.electronAPI.onedrive.downloadNote(String(id));
+      return { success: result.success, content: result.content, error: result.error };
+    },
+    deleteNote: (note) => window.electronAPI.onedrive.deleteNote(String(note.id)),
+  },
+  {
+    key: 'baidupan',
+    label: '百度网盘',
+    color: '#06a7ff',
+    isAuthenticated: () => window.electronAPI.baidupan.isAuthenticated(),
+    getCloudNotes: async () => {
+      const files = await window.electronAPI.baidupan.getCloudNotes();
+      return files.map(f => ({ id: f.fsId, name: f.filename, updatedAt: f.serverMtime * 1000, size: f.size, path: f.path }));
+    },
+    downloadNote: (id) => window.electronAPI.baidupan.downloadNote(id as number),
+    deleteNote: (note) => window.electronAPI.baidupan.deleteFile([note.path!]),
+  },
+];
+
+/** 下载回调传递的完整信息 */
+export interface CloudDownloadInfo {
+  content: string;
+  provider: CloudProvider;
+  cloudFileId: string | number;
+  cloudPath?: string;
+  cloudMtime: number;
+}
+
+interface CloudNotesPanelProps {
+  onNoteDownloaded?: (info: CloudDownloadInfo) => void;
+  onNoteDeleted?: (provider: CloudProvider, cloudFileId: string | number) => void;
+  currentNote?: Note | null;
+}
+
+export default function CloudNotesPanel({ onNoteDownloaded, onNoteDeleted, currentNote }: CloudNotesPanelProps) {
+  const [cloudNotes, setCloudNotes] = useState<CloudNoteItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [downloadDialog, setDownloadDialog] = useState<{
-    visible: boolean;
-    note?: CloudNote;
-  }>({ visible: false });
+  const [loadingNoteId, setLoadingNoteId] = useState<string | number | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<CloudProvider>('onedrive');
+  const [authenticatedProviders, setAuthenticatedProviders] = useState<Set<CloudProvider>>(new Set());
 
   useEffect(() => {
-    loadCloudNotes();
+    const check = async () => {
+      const authed = new Set<CloudProvider>();
+      for (const p of PROVIDERS) {
+        try {
+          if (await p.isAuthenticated()) authed.add(p.key);
+        } catch { /* ignore */ }
+      }
+      setAuthenticatedProviders(authed);
+      if (authed.size > 0) {
+        const first = PROVIDERS.find(p => authed.has(p.key));
+        if (first) setSelectedProvider(first.key);
+      }
+    };
+    check();
   }, []);
+
+  useEffect(() => {
+    if (authenticatedProviders.has(selectedProvider)) {
+      loadCloudNotes();
+    }
+  }, [selectedProvider, authenticatedProviders]);
+
+  const getProvider = () => PROVIDERS.find(p => p.key === selectedProvider)!;
 
   const loadCloudNotes = async () => {
     setLoading(true);
     try {
-      const notes = await window.electronAPI.onedrive.getCloudNotes();
+      const notes = await getProvider().getCloudNotes();
       setCloudNotes(notes);
     } catch (error: any) {
       message.error(error.message || '加载云端笔记失败');
+      setCloudNotes([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadNote = async (note: CloudNote) => {
-    setDownloadDialog({
-      visible: true,
-      note
-    });
+  const isCloudNewer = (note: CloudNoteItem): boolean => {
+    if (!currentNote?.cloudSource) return false;
+    const cs = currentNote.cloudSource;
+    if (cs.provider !== selectedProvider) return false;
+    if (String(cs.cloudFileId) !== String(note.id)) return false;
+    return note.updatedAt > cs.cloudMtime;
   };
 
-  const confirmDownload = async () => {
-    if (!downloadDialog.note) return;
+  const isCurrentSource = (note: CloudNoteItem): boolean => {
+    if (!currentNote?.cloudSource) return false;
+    const cs = currentNote.cloudSource;
+    return cs.provider === selectedProvider && String(cs.cloudFileId) === String(note.id);
+  };
 
+  /** 双击笔记项 — 直接加载 */
+  const handleDoubleClick = (note: CloudNoteItem) => {
+    const currentNoteName = currentNote?.name;
+    const noteBaseName = note.name.replace(/\.note$/, '');
+    // 如果是当前已同步的笔记且没有更新，不需要重新加载
+    if (isCurrentSource(note) && !isCloudNewer(note)) return;
+
+    if (currentNoteName && (currentNoteName === noteBaseName || currentNoteName === note.name) && !isCurrentSource(note)) {
+      Modal.confirm({
+        title: '替换当前笔记？',
+        content: `当前正在编辑的笔记「${currentNoteName}」与云端笔记同名，切换后将替换编辑器中的内容。未保存的修改会丢失，确定继续吗？`,
+        okText: '确定',
+        cancelText: '取消',
+        okButtonProps: { danger: true },
+        onOk: () => doLoad(note),
+      });
+    } else {
+      doLoad(note);
+    }
+  };
+
+  const doLoad = async (note: CloudNoteItem) => {
+    setLoadingNoteId(note.id);
     try {
-      // 让用户选择本地保存位置
-      const filePath = await window.electronAPI.saveNote('', downloadDialog.note.name);
-      
-      if (!filePath) {
-        message.info('已取消下载');
-        return;
-      }
+      const provider = getProvider();
+      const result = await provider.downloadNote(note.id);
 
-      // 下载笔记到指定位置
-      const result = await window.electronAPI.onedrive.downloadNote(downloadDialog.note.id, filePath);
-      
-      if (result.success) {
-        message.success('笔记已下载到本地');
-        setDownloadDialog({ visible: false });
-        
-        if (onNoteDownloaded) {
-          onNoteDownloaded();
-        }
-        
-        // 刷新列表
+      if (result.success && result.content) {
+        onNoteDownloaded?.({
+          content: result.content,
+          provider: selectedProvider,
+          cloudFileId: note.id,
+          cloudPath: note.path,
+          cloudMtime: note.updatedAt,
+        });
         loadCloudNotes();
       } else {
-        message.error(result.error || '下载失败');
+        message.error(result.error || '加载失败');
       }
     } catch (error: any) {
-      message.error(error.message || '下载失败');
+      message.error(error.message || '加载失败');
+    } finally {
+      setLoadingNoteId(null);
+    }
+  };
+
+  /** 删除云端笔记 */
+  const handleDelete = async (note: CloudNoteItem) => {
+    try {
+      const provider = getProvider();
+      await provider.deleteNote(note);
+      message.success('云端笔记已删除');
+      // 如果删除的是当前预览的笔记，通知父组件
+      if (isCurrentSource(note)) {
+        onNoteDeleted?.(selectedProvider, note.id);
+      }
+      loadCloudNotes();
+    } catch (error: any) {
+      message.error(error.message || '删除失败');
     }
   };
 
@@ -83,16 +203,10 @@ export default function CloudNotesPanel({ onNoteDownloaded }: CloudNotesPanelPro
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays === 1) {
-      return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    } else if (diffDays < 7) {
-      return `${diffDays} 天前`;
-    } else {
-      return date.toLocaleDateString('zh-CN');
-    }
+    if (diffDays === 0) return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays < 7) return `${diffDays} 天前`;
+    return date.toLocaleDateString('zh-CN');
   };
 
   const formatSize = (bytes: number): string => {
@@ -111,110 +225,128 @@ export default function CloudNotesPanel({ onNoteDownloaded }: CloudNotesPanelPro
           </Text>
           <Tag color="blue">{cloudNotes.length} 个</Tag>
         </Space>
-        <Button
-          icon={<ReloadOutlined />}
-          size="small"
-          onClick={loadCloudNotes}
-          loading={loading}
-        >
+        <Button icon={<ReloadOutlined />} size="small" onClick={loadCloudNotes} loading={loading}>
           刷新
         </Button>
       </div>
 
-      <Spin spinning={loading}>
-        <List
-          dataSource={cloudNotes}
-          locale={{ emptyText: '云端暂无笔记' }}
-          renderItem={(note) => (
+      {/* 云盘切换 */}
+      <div style={{ marginBottom: 16 }}>
+        <Radio.Group
+          value={selectedProvider}
+          onChange={(e) => setSelectedProvider(e.target.value)}
+          size="small"
+        >
+          {PROVIDERS.map((p) => (
+            <Radio.Button
+              key={p.key}
+              value={p.key}
+              disabled={!authenticatedProviders.has(p.key)}
+            >
+              {p.label}
+              {!authenticatedProviders.has(p.key) && ' (未登录)'}
+            </Radio.Button>
+          ))}
+        </Radio.Group>
+      </div>
+
+      {/* 加载进度条 */}
+      {loading && (
+        <Progress
+          percent={100}
+          status="active"
+          showInfo={false}
+          strokeColor={{ from: '#1890ff', to: '#52c41a' }}
+          style={{ marginBottom: 16 }}
+          size="small"
+        />
+      )}
+
+      <List
+        dataSource={cloudNotes}
+        locale={{ emptyText: loading ? ' ' : '云端暂无笔记' }}
+        renderItem={(note) => {
+          const newer = isCloudNewer(note);
+          const isCurrent = isCurrentSource(note) && !newer;
+          const isLoading = loadingNoteId === note.id;
+          return (
             <List.Item
               style={{
                 padding: '12px',
                 borderRadius: '8px',
                 marginBottom: '8px',
-                background: '#fff',
-                border: '1px solid #e8e8e8',
-                transition: 'all 0.3s'
+                background: isCurrent ? '#f6ffed' : '#fff',
+                border: newer ? '1px solid #faad14' : isCurrent ? '1px solid #b7eb8f' : '1px solid #e8e8e8',
+                transition: 'all 0.3s',
+                cursor: 'pointer',
+                userSelect: 'none',
+                opacity: isLoading ? 0.6 : 1,
+                position: 'relative',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#1890ff';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#e8e8e8';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-              actions={[
-                <Button
-                  key="download"
-                  type="primary"
-                  size="small"
-                  icon={<DownloadOutlined />}
-                  onClick={() => handleDownloadNote(note)}
-                  disabled={note.existsLocally}
-                >
-                  {note.existsLocally ? '已在本地' : '下载'}
-                </Button>
-              ]}
+              onDoubleClick={() => handleDoubleClick(note)}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = newer ? '#faad14' : '#1890ff'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; const del = e.currentTarget.querySelector('.delete-btn') as HTMLElement; if (del) del.style.opacity = '1'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = newer ? '#faad14' : isCurrent ? '#b7eb8f' : '#e8e8e8'; e.currentTarget.style.boxShadow = 'none'; const del = e.currentTarget.querySelector('.delete-btn') as HTMLElement; if (del) del.style.opacity = '0'; }}
             >
+              {isLoading && (
+                <Progress
+                  percent={100}
+                  status="active"
+                  showInfo={false}
+                  size="small"
+                  style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
+                  strokeColor={{ from: '#1890ff', to: '#52c41a' }}
+                />
+              )}
+              <Popconfirm
+                title="删除云端笔记"
+                description="确定要删除这个云端笔记吗？此操作不可恢复。"
+                onConfirm={(e) => { e?.stopPropagation(); handleDelete(note); }}
+                onCancel={(e) => e?.stopPropagation()}
+                okText="删除"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+              >
+                <div
+                  className="delete-btn"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    opacity: 0,
+                    transition: 'opacity 0.2s',
+                    zIndex: 10,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                >
+                  <DeleteOutlined style={{ fontSize: 14, color: '#ff4d4f', cursor: 'pointer' }} />
+                </div>
+              </Popconfirm>
               <List.Item.Meta
-                avatar={<FolderOutlined style={{ fontSize: 24, color: '#1890ff' }} />}
+                avatar={<FolderOutlined style={{ fontSize: 24, color: newer ? '#faad14' : isCurrent ? '#52c41a' : '#1890ff' }} />}
                 title={
                   <Space>
                     <Text strong>{note.name}</Text>
-                    {note.existsLocally && <Tag color="green">本地已有</Tag>}
+                    {newer && <Tag color="orange"><SyncOutlined /> 云端有更新</Tag>}
+                    {isCurrent && <Tag color="green">当前</Tag>}
                   </Space>
                 }
                 description={
-                  <Space direction="vertical" size={0}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      更新时间：{formatDate(note.updatedAt)}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      大小：{formatSize(note.size)}
-                    </Text>
-                  </Space>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{formatDate(note.updatedAt)} · {formatSize(note.size)}</Text>
+                    {!isCurrent && !newer && (
+                      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>双击打开</Text>
+                    )}
+                    {newer && (
+                      <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>双击更新到最新版本</Text>
+                    )}
+                  </div>
                 }
               />
             </List.Item>
-          )}
-        />
-      </Spin>
-
-      <Modal
-        title="下载云端笔记"
-        open={downloadDialog.visible}
-        onCancel={() => setDownloadDialog({ visible: false })}
-        onOk={confirmDownload}
-        okText="下载"
-        cancelText="取消"
-      >
-        {downloadDialog.note && (
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            <div>
-              <Text strong>笔记名称：</Text>
-              <Text>{downloadDialog.note.name}</Text>
-            </div>
-            <div>
-              <Text strong>更新时间：</Text>
-              <Text>{new Date(downloadDialog.note.updatedAt).toLocaleString('zh-CN')}</Text>
-            </div>
-            <div>
-              <Text strong>文件大小：</Text>
-              <Text>{formatSize(downloadDialog.note.size)}</Text>
-            </div>
-            <div style={{
-              padding: 12,
-              background: '#e6f7ff',
-              border: '1px solid #91d5ff',
-              borderRadius: 4
-            }}>
-              <Text type="secondary">
-                点击"下载"后，请选择保存位置
-              </Text>
-            </div>
-          </Space>
-        )}
-      </Modal>
+          );
+        }}
+      />
     </div>
   );
 }

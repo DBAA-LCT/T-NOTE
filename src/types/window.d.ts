@@ -25,7 +25,17 @@ import type {
   IPCSyncComplete,
   IPCSyncError,
   IPCNetworkStatusChange,
+  RecentNoteItem,
 } from './onedrive-sync';
+
+import type {
+  BaiduUserInfo,
+  BaiduFileItem,
+  BaiduQuotaInfo,
+  BaiduSyncProgress,
+  BaiduSyncComplete,
+  BaiduSyncErrorEvent,
+} from './baidupan-sync';
 
 export interface ElectronAPI {
   // Existing note operations
@@ -39,6 +49,17 @@ export interface ElectronAPI {
   onMenuSave: (callback: () => void) => void;
   onMenuSaveAs: (callback: () => void) => void;
   onOpenFileFromSystem: (callback: (filePath: string) => void) => () => void;
+
+  // 最近笔记
+  recentNotes: {
+    get: () => Promise<RecentNoteItem[]>;
+    add: (filePath: string, name: string) => Promise<void>;
+    remove: (filePath: string) => Promise<void>;
+    clear: () => Promise<void>;
+  };
+
+  // 新窗口打开笔记
+  openNoteInNewWindow: (filePath: string) => Promise<{ success: boolean }>;
   
   // OneDrive Sync API
   onedrive: {
@@ -52,7 +73,7 @@ export interface ElectronAPI {
     sync: (options?: SyncOptions) => Promise<SyncResult>;
     syncNote: (noteId: string) => Promise<NoteSyncResult>;
     uploadNote: (noteId: string) => Promise<UploadResult>;
-    uploadNoteContent: (params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string }) => Promise<UploadResult>;
+    uploadNoteContent: (params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string; cloudSource?: { provider: string; cloudFileId: string | number; cloudPath?: string } }) => Promise<UploadResult>;
     downloadNote: (cloudNoteId: string, localPath?: string) => Promise<DownloadResult>;
     getSyncStatus: (noteId: string) => Promise<SyncStatus>;
     cancelSync: () => Promise<void>;
@@ -62,6 +83,7 @@ export interface ElectronAPI {
     browseFolders: (parentPath?: string) => Promise<FolderItem[]>;
     createFolder: (folderName: string, parentPath?: string) => Promise<FolderItem>;
     getStorageQuota: () => Promise<StorageQuota>;
+    deleteNote: (driveItemId: string) => Promise<{ success: boolean }>;
     
     // Page-Level Sync
     commitPage: (noteId: string, pageId: string) => Promise<CommitResult>;
@@ -90,6 +112,42 @@ export interface ElectronAPI {
     onSyncError: (callback: (data: IPCSyncError) => void) => () => void;
     onNetworkStatusChange: (callback: (data: IPCNetworkStatusChange) => void) => () => void;
     onConflictDetected: (callback: (data: ConflictInfo) => void) => () => void;
+  };
+
+  // 百度网盘 API
+  baidupan: {
+    // 认证
+    authenticate: () => Promise<BaiduUserInfo>;
+    disconnect: () => Promise<void>;
+    getUserInfo: () => Promise<BaiduUserInfo>;
+    isAuthenticated: () => Promise<boolean>;
+
+    // 网盘信息
+    getQuota: () => Promise<BaiduQuotaInfo>;
+
+    // 文件操作
+    listFiles: (dir?: string) => Promise<BaiduFileItem[]>;
+    createFolder: (folderPath: string) => Promise<{ success: boolean }>;
+    deleteFile: (filePaths: string[]) => Promise<{ success: boolean }>;
+
+    // 文件夹浏览
+    browseFolders: (parentPath?: string) => Promise<{ name: string; path: string; childCount: number }[]>;
+    getSyncFolder: () => Promise<string | null>;
+    setSyncFolder: (folderPath: string) => Promise<void>;
+
+    // 设置
+    getSyncSettings: () => Promise<{ wifiOnly: boolean; saveConflictCopy: boolean; syncFolder: string | null }>;
+    updateSyncSettings: (settings: { wifiOnly?: boolean; saveConflictCopy?: boolean }) => Promise<void>;
+
+    // 同步
+    uploadNote: (params: { noteContent: string; noteName: string; cloudPath?: string }) => Promise<{ success: boolean; path: string; fsId: number }>;
+    getCloudNotes: () => Promise<BaiduFileItem[]>;
+    downloadNote: (fsId: number) => Promise<{ success: boolean; content: string }>;
+
+    // 事件监听
+    onSyncProgress: (callback: (data: BaiduSyncProgress) => void) => () => void;
+    onSyncComplete: (callback: (data: BaiduSyncComplete) => void) => () => void;
+    onSyncError: (callback: (data: BaiduSyncErrorEvent) => void) => () => void;
   };
 }
 

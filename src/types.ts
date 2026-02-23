@@ -67,19 +67,17 @@ export interface Note {
     oneDrivePath: string;       // OneDrive路径
     lastSyncAt: number;         // 最后同步时间
   };
-}
 
-declare global {
-  interface Window {
-    electronAPI: {
-      saveNote: (noteData: string, defaultName?: string) => Promise<string | null>;
-      saveNoteToPath: (filePath: string, noteData: string) => Promise<boolean>;
-      openNote: () => Promise<{ filePath: string; content: string } | null>;
-      renameFile: (oldPath: string, newName: string) => Promise<string | null>;
-      setWindowTitle: (title: string) => Promise<void>;
-      onMenuOpen: (callback: () => void) => void;
-      onMenuSave: (callback: () => void) => void;
-      onMenuSaveAs: (callback: () => void) => void;
-    };
-  }
+  // 云端来源信息（轻量同步标记）
+  cloudSource?: {
+    provider: 'onedrive' | 'baidupan';
+    /** 云端文件标识：OneDrive 的 driveItemId 或百度网盘的 fsId */
+    cloudFileId: string | number;
+    /** 云端文件路径 */
+    cloudPath?: string;
+    /** 上次同步时云端文件的修改时间 */
+    cloudMtime: number;
+    /** 上次同步的本地时间 */
+    lastSyncedAt: number;
+  };
 }

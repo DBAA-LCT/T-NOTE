@@ -138,6 +138,9 @@ export interface CloudNoteData {
   name: string;
   content: string;
   updatedAt: number;
+  size?: number;
+  /** OneDrive item ID, used for download API calls */
+  driveItemId?: string;
 }
 
 // ============================================================================
@@ -237,6 +240,23 @@ export interface AppSettings {
     wifiOnly: boolean;
     saveConflictCopy: boolean;
   };
+  baidupan?: {
+    connected: boolean;
+    userId: string | null;
+    syncFolder: string | null;
+    wifiOnly: boolean;
+    saveConflictCopy: boolean;
+  };
+  recentNotes?: RecentNoteItem[];
+}
+
+export interface RecentNoteItem {
+  /** 笔记文件的完整路径 */
+  filePath: string;
+  /** 笔记名称 */
+  name: string;
+  /** 最后打开时间 */
+  openedAt: number;
 }
 
 // ============================================================================
