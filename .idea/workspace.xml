@@ -2,27 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/ipc/handlers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ipc/handlers.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/preload.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/preload.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/services/settings-manager.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/settings-manager.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/electron/services/sync-engine.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/sync-engine.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/App.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/Editor.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Editor.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/IconBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/IconBar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/OneDriveSettingsPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/OneDriveSettingsPanel.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/TopBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/TopBar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/components/UploadToCloudButton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/UploadToCloudButton.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/onedrive-sync.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/onedrive-sync.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types/window.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/window.d.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -67,7 +49,7 @@
       <recent name="D:\code\Note\build" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.dev:electron">
+  <component name="RunManager" selected="npm.package">
     <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
@@ -120,9 +102,9 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="npm.package" />
         <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.build" />
-        <item itemvalue="npm.package" />
         <item itemvalue="npm.dev:renderer" />
         <item itemvalue="npm.dev" />
       </list>
@@ -131,8 +113,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.138" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.138" />
+        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.240" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.240" />
       </set>
     </attachedChunks>
   </component>
@@ -154,6 +136,7 @@
       <workItem from="1770946840064" duration="1939000" />
       <workItem from="1771038300781" duration="28000" />
       <workItem from="1771049290014" duration="9774000" />
+      <workItem from="1771835610069" duration="1359000" />
     </task>
     <servers />
   </component>

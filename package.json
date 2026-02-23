@@ -59,7 +59,7 @@
           "ext": "note",
           "name": "T-Note Document",
           "description": "T-Note笔记文件",
-          "icon": "release/.icon-ico/icon.ico",
+          "icon": "release/.icon-ico/note-icon.ico",
           "role": "Editor"
         }
       ]
