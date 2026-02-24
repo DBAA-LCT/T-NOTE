@@ -73,14 +73,15 @@ export class AuthManager {
   /**
    * Start OAuth 2.0 authorization flow
    * Opens a browser window for user to authorize the application
+   * @param forceAccountSelection Force user to select account (for multi-account support)
    * @returns User information after successful authentication
    */
-  async authenticate(): Promise<UserInfo> {
-    logger.info('auth', 'Starting OAuth 2.0 authentication flow');
+  async authenticate(forceAccountSelection: boolean = false): Promise<UserInfo> {
+    logger.info('auth', 'Starting OAuth 2.0 authentication flow', { forceAccountSelection });
 
     try {
       // Step 1: Get authorization code
-      const authCode = await this.getAuthorizationCode();
+      const authCode = await this.getAuthorizationCode(forceAccountSelection);
       
       // Step 2: Exchange authorization code for tokens
       const tokens = await this.exchangeCodeForTokens(authCode);
@@ -101,12 +102,13 @@ export class AuthManager {
 
   /**
    * Get authorization code by opening OAuth window
+   * @param forceAccountSelection Force user to select account
    * @returns Authorization code from OAuth callback
    */
-  private async getAuthorizationCode(): Promise<string> {
+  private async getAuthorizationCode(forceAccountSelection: boolean = false): Promise<string> {
     return new Promise((resolve, reject) => {
       // Build authorization URL
-      const authUrl = this.buildAuthorizationUrl();
+      const authUrl = this.buildAuthorizationUrl(forceAccountSelection);
       
       // Create authorization window
       this.authWindow = new BrowserWindow({
@@ -116,6 +118,8 @@ export class AuthManager {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
+          // Clear session to force fresh login
+          partition: forceAccountSelection ? `persist:oauth-${Date.now()}` : 'persist:oauth',
         },
       });
 
@@ -142,9 +146,10 @@ export class AuthManager {
 
   /**
    * Build OAuth 2.0 authorization URL
+   * @param forceAccountSelection Force user to select account
    * @returns Complete authorization URL with parameters
    */
-  private buildAuthorizationUrl(): string {
+  private buildAuthorizationUrl(forceAccountSelection: boolean = false): string {
     const params = new URLSearchParams({
       client_id: OAUTH_CONFIG.clientId,
       response_type: 'code',
@@ -152,6 +157,11 @@ export class AuthManager {
       scope: OAUTH_CONFIG.scope,
       response_mode: 'query',
     });
+
+    // Force account selection to allow multiple accounts
+    if (forceAccountSelection) {
+      params.append('prompt', 'select_account');
+    }
 
     return `${OAUTH_CONFIG.authUrl}?${params.toString()}`;
   }

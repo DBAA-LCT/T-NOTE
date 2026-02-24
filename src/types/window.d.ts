@@ -61,6 +61,26 @@ export interface ElectronAPI {
   // 新窗口打开笔记
   openNoteInNewWindow: (filePath: string) => Promise<{ success: boolean }>;
   
+  // 远程账号管理
+  remoteAccounts: {
+    getAll: () => Promise<import('./remote-account').RemoteAccountsSettings>;
+    create: (params: { provider: string; displayName: string }) => Promise<import('./remote-account').RemoteAccount>;
+    delete: (accountId: string) => Promise<void>;
+    setDefault: (accountId: string) => Promise<void>;
+    isAuthenticated: (accountId: string) => Promise<boolean>;
+    authenticate: (accountId: string) => Promise<any>;
+    disconnect: (accountId: string) => Promise<void>;
+    getUserInfo: (accountId: string) => Promise<any>;
+    getQuota: (accountId: string) => Promise<any>;
+    getSyncFolder: (accountId: string) => Promise<string | null>;
+    setSyncFolder: (accountId: string, folderPath: string) => Promise<void>;
+    browseFolders: (accountId: string, parentPath?: string) => Promise<any[]>;
+    createFolder: (accountId: string, name: string, parentPath?: string) => Promise<any>;
+    getSyncSettings: (accountId: string) => Promise<{ wifiOnly: boolean; saveConflictCopy: boolean }>;
+    updateSyncSetting: (accountId: string, key: string, value: boolean) => Promise<void>;
+    getCloudNotes: (accountId: string) => Promise<any[]>;
+  };
+  
   // OneDrive Sync API
   onedrive: {
     // Authentication
@@ -140,9 +160,9 @@ export interface ElectronAPI {
     updateSyncSettings: (settings: { wifiOnly?: boolean; saveConflictCopy?: boolean }) => Promise<void>;
 
     // 同步
-    uploadNote: (params: { noteContent: string; noteName: string; cloudPath?: string }) => Promise<{ success: boolean; path: string; fsId: number }>;
+    uploadNote: (params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string; cloudSource?: { provider: string; cloudFileId: string | number; cloudPath?: string } }) => Promise<{ success: boolean; path?: string; cloudId?: string | number; fileName?: string }>;
     getCloudNotes: () => Promise<BaiduFileItem[]>;
-    downloadNote: (fsId: number) => Promise<{ success: boolean; content: string }>;
+    downloadNote: (fsId: number) => Promise<{ success: boolean; content?: string; error?: string }>;
 
     // 事件监听
     onSyncProgress: (callback: (data: BaiduSyncProgress) => void) => () => void;

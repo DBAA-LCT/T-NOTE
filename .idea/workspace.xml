@@ -3,8 +3,22 @@
   <component name="ChangeListManager">
     <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/ipc/baidupan-handlers.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/ipc/baidupan-handlers.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/preload.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/preload.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/services/baidupan-client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/baidupan-client.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BaiduPanSettingsPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BaiduPanSettingsPanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BaiduPanSyncButton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BaiduPanSyncButton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CloudNotesPanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CloudPagesPanel.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CloudStoragePanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CloudStoragePanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/CloudSyncButton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/CloudSyncButton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/FolderBrowser.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/FolderBrowser.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/IconBar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/IconBar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/UploadToCloudButton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/UploadToCloudButton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/hooks/useCloudSync.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/hooks/useCloudSync.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/window.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/window.d.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +63,7 @@
       <recent name="D:\code\Note\build" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.package">
+  <component name="RunManager" selected="npm.dev:electron">
     <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
@@ -102,9 +116,9 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="npm.package" />
         <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.build" />
+        <item itemvalue="npm.package" />
         <item itemvalue="npm.dev:renderer" />
         <item itemvalue="npm.dev" />
       </list>
@@ -113,8 +127,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.240" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.240" />
+        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.138" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.29346.138" />
       </set>
     </attachedChunks>
   </component>
@@ -137,6 +151,8 @@
       <workItem from="1771038300781" duration="28000" />
       <workItem from="1771049290014" duration="9774000" />
       <workItem from="1771835610069" duration="1359000" />
+      <workItem from="1771898315509" duration="714000" />
+      <workItem from="1771899487868" duration="884000" />
     </task>
     <servers />
   </component>

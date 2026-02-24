@@ -37,8 +37,8 @@ const PROVIDERS: ProviderOption[] = [
     isAuthenticated: () => window.electronAPI.baidupan.isAuthenticated(),
     getSyncFolder: () => window.electronAPI.baidupan.getSyncFolder(),
     setSyncFolder: (p) => window.electronAPI.baidupan.setSyncFolder(p),
-    upload: (params) => window.electronAPI.baidupan.uploadNote({ noteContent: params.noteContent, noteName: params.noteName, cloudPath: params.cloudSource?.cloudPath }),
-    hasFolderBrowser: false,
+    upload: (params) => window.electronAPI.baidupan.uploadNote(params),
+    hasFolderBrowser: true,
   },
 ];
 
@@ -135,7 +135,7 @@ export default function UploadToCloudButton({
         setShowDialog(false);
         onUploadSuccess?.({
           provider: selectedProvider,
-          cloudFileId: result.fsId || result.cloudId || '',
+          cloudFileId: result.cloudId || '',
           cloudPath: result.path,
           cloudMtime: Date.now(),
         });
@@ -255,6 +255,7 @@ export default function UploadToCloudButton({
           onClose={() => setShowFolderBrowser(false)}
           onSelect={handleFolderSelect}
           initialPath={syncFolder}
+          provider={selectedProvider}
         />
       )}
     </>

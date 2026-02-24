@@ -17,7 +17,7 @@ import { useCloudSync } from '../hooks/useCloudSync';
 interface CloudSyncButtonProps {
   provider: CloudProvider;
   onSyncComplete?: () => void;
-  getNoteData?: () => { noteContent: string; noteName: string } | null;
+  getNoteData?: () => { noteContent: string; noteName: string; noteId: string } | null;
   mode?: 'full-sync' | 'upload-only';
 }
 
@@ -51,11 +51,11 @@ export default function CloudSyncButton({
       }
 
       try {
-        const api = provider === 'onedrive' 
-          ? window.electronAPI.onedrive 
-          : window.electronAPI.baidupan;
-        
-        await api.uploadNote(data);
+        if (provider === 'onedrive') {
+          await window.electronAPI.onedrive.uploadNoteContent(data);
+        } else {
+          await window.electronAPI.baidupan.uploadNote(data);
+        }
         message.success(`已上传到${providerName}`);
         onSyncComplete?.();
       } catch (error) {

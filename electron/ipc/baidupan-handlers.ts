@@ -94,17 +94,16 @@ export function registerBaiduPanHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle(
     BAIDU_IPC_CHANNELS.SYNC_UPLOAD_NOTE,
-    async (_event, params: { noteContent: string; noteName: string; cloudPath?: string }) => {
+    async (_event, params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string; cloudSource?: { provider: string; cloudFileId: string | number; cloudPath?: string } }) => {
       try {
         const client = getBaiduPanClient();
         const syncFolder = getSettingsManager().getBaiduPanSyncFolder() || '/apps/TNote';
         // 确保文件名带 .note 后缀
         const fileName = params.noteName.endsWith('.note') ? params.noteName : `${params.noteName}.note`;
-        // 如果有 cloudPath（已存在的云端文件），直接用原路径覆盖
-        const remotePath = params.cloudPath || `${syncFolder}/${fileName}`;
-
-        // 确保同步目录存在
-        await client.createFolder(syncFolder);
+        // 如果有 cloudSource 且是百度网盘，直接用原路径覆盖；否则用同步目录 + 文件名
+        const remotePath = (params.cloudSource && params.cloudSource.provider === 'baidupan' && params.cloudSource.cloudPath)
+          ? params.cloudSource.cloudPath
+          : `${syncFolder}/${fileName}`;
 
         // 发送进度
         mainWindow.webContents.send(BAIDU_IPC_CHANNELS.EVENT_SYNC_PROGRESS, {
@@ -127,7 +126,7 @@ export function registerBaiduPanHandlers(mainWindow: BrowserWindow): void {
           result: { uploaded: 1, downloaded: 0, errors: [], timestamp: Date.now() },
         });
 
-        return { success: true, path: result.path, fsId: result.fsId };
+        return { success: true, path: result.path, cloudId: result.fsId, fileName };
       } catch (error) {
         const errMsg = (error as Error).message;
         mainWindow.webContents.send(BAIDU_IPC_CHANNELS.EVENT_SYNC_ERROR, { error: errMsg });
@@ -141,7 +140,6 @@ export function registerBaiduPanHandlers(mainWindow: BrowserWindow): void {
     try {
       const client = getBaiduPanClient();
       const syncFolder = getSettingsManager().getBaiduPanSyncFolder() || '/apps/TNote';
-      await client.createFolder(syncFolder);
       const files = await client.listFiles(syncFolder);
       // 只返回 .note 文件
       return files.filter(f => f.isdir === 0 && f.filename.endsWith('.note'));
@@ -173,7 +171,7 @@ export function registerBaiduPanHandlers(mainWindow: BrowserWindow): void {
       const errMsg = (error as Error).message;
       mainWindow.webContents.send(BAIDU_IPC_CHANNELS.EVENT_SYNC_ERROR, { error: errMsg });
       logger.error('sync', '百度网盘: 下载笔记失败', error as Error);
-      throw error;
+      return { success: false, error: errMsg };
     }
   });
 

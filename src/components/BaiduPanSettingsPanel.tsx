@@ -84,7 +84,10 @@ const baiduPanAdapter: CloudStorageAdapter = {
     }));
   },
 
-  downloadNote: (id: string | number) => window.electronAPI.baidupan.downloadNote(id as number),
+  downloadNote: async (id: string | number) => {
+    const result = await window.electronAPI.baidupan.downloadNote(id as number);
+    return { success: result.success, content: result.content || '' };
+  },
 
   deleteNote: async (item: CloudNoteItem) => {
     if (item.path) await window.electronAPI.baidupan.deleteFile([item.path]);

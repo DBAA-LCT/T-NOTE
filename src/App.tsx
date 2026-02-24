@@ -11,11 +11,8 @@ import TodoPanel from './components/TodoPanel';
 import BookmarkPanel from './components/BookmarkPanel';
 import TrashPanel from './components/TrashPanel';
 import SettingsPanel, { SettingsItem } from './components/SettingsPanel';
-import OneDriveSettingsPanel from './components/OneDriveSettingsPanel';
-import BaiduPanSettingsPanel from './components/BaiduPanSettingsPanel';
-import CloudPagesPanel from './components/CloudPagesPanel';
+import RemoteAccountsPanel from './components/RemoteAccountsPanel';
 import CloudNotesPanel from './components/CloudNotesPanel';
-import RecentNotesPanel from './components/RecentNotesPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -849,24 +846,8 @@ function App() {
           />
         );
       case 'settings':
-        return (
-          <SettingsPanel 
-            activeItem={activeSettingsItem}
-            onSelectItem={setActiveSettingsItem}
-          />
-        );
-      case 'cloudnotes':
-        return <CloudPagesPanel currentNote={note} onPageUpdate={() => {
-          // 重新加载笔记以获取最新数据
-          if (currentFilePath && note) {
-            window.electronAPI.readFile(currentFilePath).then(result => {
-              if (result.success && result.content) {
-                const loadedNote = JSON.parse(result.content);
-                setNote(loadedNote);
-              }
-            });
-          }
-        }} />;
+        // 设置面板现在直接显示在主区域，不需要侧边栏
+        return null;
       case 'cloudlist':
         return <CloudNotesPanel
           currentNote={note}
@@ -913,60 +894,18 @@ function App() {
             }
           }}
         />;
-      case 'recent':
-        return <RecentNotesPanel
-          onOpenInCurrentWindow={async (filePath) => {
-            try {
-              const result = await window.electronAPI.readFile(filePath);
-              if (result.success && result.content) {
-                const loadedNote = JSON.parse(result.content);
-                setNote(loadedNote);
-                setCurrentPageId(loadedNote.pages[0]?.id || null);
-                setCurrentFilePath(filePath);
-                setPreviewCloudInfo(null);
-                setHasUnsavedChanges(false);
-                setActiveTab('pages');
-                await window.electronAPI.recentNotes.add(filePath, loadedNote.name);
-                if (loadedNote.pages?.length > 0) {
-                  setLeftTabs([loadedNote.pages[0].id]);
-                  setActiveLeftTab(loadedNote.pages[0].id);
-                  setActiveSide('left');
-                }
-                message.success('笔记已打开');
-              } else {
-                message.error('文件读取失败，可能已被移动或删除');
-                await window.electronAPI.recentNotes.remove(filePath);
-              }
-            } catch {
-              message.error('打开笔记失败');
-            }
-          }}
-          onCreateNew={createNewNote}
-          onOpen={openNote}
-        />;
       default:
         return null;
     }
   };
 
   const renderSettingsMainPanel = () => {
-    if (activeTab !== 'settings' || !activeSettingsItem) {
+    if (activeTab !== 'settings') {
       return null;
     }
 
-    switch (activeSettingsItem) {
-      case 'onedrive':
-        return <OneDriveSettingsPanel />;
-      case 'baidupan':
-        return <BaiduPanSettingsPanel />;
-      // 预留其他网盘的设置面板
-      // case 'googledrive':
-      //   return <GoogleDriveSettingsPanel />;
-      // case 'dropbox':
-      //   return <DropboxSettingsPanel />;
-      default:
-        return null;
-    }
+    // 统一使用远程账号管理面板
+    return <RemoteAccountsPanel />;
   };
 
   // ---- 预览模式操作 ----
@@ -982,7 +921,12 @@ function App() {
       const fileName = note.name.endsWith('.note') ? note.name : `${note.name}.note`;
 
       if (previewCloudInfo.provider === 'baidupan') {
-        await window.electronAPI.baidupan.uploadNote({ noteContent: noteJson, noteName: fileName, cloudPath: previewCloudInfo.cloudPath });
+        await window.electronAPI.baidupan.uploadNote({
+          noteContent: noteJson,
+          noteName: fileName,
+          noteId: note.id,
+          cloudSource: { provider: 'baidupan', cloudFileId: previewCloudInfo.cloudFileId, cloudPath: previewCloudInfo.cloudPath },
+        });
       } else {
         await window.electronAPI.onedrive.uploadNoteContent({
           noteContent: noteJson,
@@ -1108,6 +1052,32 @@ function App() {
         onSaveToLocal={handleSaveToLocal}
         onCloseNote={handleCloseNote}
         cloudSaving={cloudSaving}
+        onOpenRecentNote={async (filePath) => {
+          try {
+            const result = await window.electronAPI.readFile(filePath);
+            if (result.success && result.content) {
+              const loadedNote = JSON.parse(result.content);
+              setNote(loadedNote);
+              setCurrentPageId(loadedNote.pages[0]?.id || null);
+              setCurrentFilePath(filePath);
+              setPreviewCloudInfo(null);
+              setHasUnsavedChanges(false);
+              setActiveTab('pages');
+              await window.electronAPI.recentNotes.add(filePath, loadedNote.name);
+              if (loadedNote.pages?.length > 0) {
+                setLeftTabs([loadedNote.pages[0].id]);
+                setActiveLeftTab(loadedNote.pages[0].id);
+                setActiveSide('left');
+              }
+              message.success('笔记已打开');
+            } else {
+              message.error('文件读取失败，可能已被移动或删除');
+              await window.electronAPI.recentNotes.remove(filePath);
+            }
+          } catch {
+            message.error('打开笔记失败');
+          }
+        }}
       />
       
       <Layout style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'row' }}>
@@ -1149,7 +1119,7 @@ function App() {
         
         <Layout style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* 设置主页面区域 */}
-          {activeTab === 'settings' && activeSettingsItem ? (
+          {activeTab === 'settings' ? (
             <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
               {renderSettingsMainPanel()}
             </div>

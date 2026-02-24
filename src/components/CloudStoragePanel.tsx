@@ -72,6 +72,8 @@ export interface CloudStorageAdapter {
   name: string;
   /** 主题色 */
   themeColor: string;
+  /** 账号 ID（可选，用于多账号管理） */
+  accountId?: string;
 
   // ---- 认证 ----
   isAuthenticated: () => Promise<boolean>;
@@ -107,9 +109,10 @@ export interface CloudStorageAdapter {
 
 interface CloudStoragePanelProps {
   adapter: CloudStorageAdapter;
+  onAuthChange?: () => void;
 }
 
-export default function CloudStoragePanel({ adapter }: CloudStoragePanelProps) {
+export default function CloudStoragePanel({ adapter, onAuthChange }: CloudStoragePanelProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userInfo, setUserInfo] = useState<CloudUserInfo | null>(null);
   const [quota, setQuota] = useState<CloudQuota | null>(null);
@@ -191,6 +194,7 @@ export default function CloudStoragePanel({ adapter }: CloudStoragePanelProps) {
       setUserInfo(info);
       setIsAuthenticated(true);
       message.success(`${adapter.name} 连接成功！`);
+      onAuthChange?.();
       if (adapter.browseFolders) {
         Modal.info({
           title: '选择同步文件夹',
@@ -219,6 +223,7 @@ export default function CloudStoragePanel({ adapter }: CloudStoragePanelProps) {
           setSyncSettings([]);
           setCloudNotes([]);
           message.success(`已解绑 ${adapter.name} 账号`);
+          onAuthChange?.();
         } catch (error: any) {
           message.error(error.message || '解绑失败');
         }

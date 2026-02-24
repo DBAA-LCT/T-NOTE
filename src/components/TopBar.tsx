@@ -1,12 +1,13 @@
-import { Button, Typography, Input, Space, Tag } from 'antd';
-import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined, CloudUploadOutlined, DownloadOutlined, CloudOutlined, CloseOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { Button, Typography, Input, Space, Tag, Dropdown, Modal, message, Empty } from 'antd';
+import { FileTextOutlined, PlusOutlined, EditOutlined, SaveOutlined, CloudUploadOutlined, DownloadOutlined, CloudOutlined, CloseOutlined, HistoryOutlined, DeleteOutlined, DownOutlined } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
 import OneDriveSyncButton from './OneDriveSyncButton';
 import OfflineModeIndicator from './OfflineModeIndicator';
 import UploadToCloudButton, { type CloudProvider } from './UploadToCloudButton';
 import type { Note } from '../types';
+import type { RecentNoteItem } from '../types/onedrive-sync';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface TopBarProps {
   noteName: string;
@@ -25,6 +26,7 @@ interface TopBarProps {
   onSaveToLocal?: () => void;
   onCloseNote?: () => void;
   cloudSaving?: boolean;
+  onOpenRecentNote?: (filePath: string) => void;
 }
 
 export default function TopBar({ 
@@ -44,9 +46,63 @@ export default function TopBar({
   onSaveToLocal,
   onCloseNote,
   cloudSaving,
+  onOpenRecentNote,
 }: TopBarProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(noteName);
+  const [recentNotes, setRecentNotes] = useState<RecentNoteItem[]>([]);
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
+  const loadRecentNotes = async () => {
+    try {
+      const notes = await window.electronAPI.recentNotes.get();
+      setRecentNotes(notes);
+    } catch {
+      setRecentNotes([]);
+    }
+  };
+
+  useEffect(() => {
+    loadRecentNotes();
+  }, []);
+
+  const handleRecentNoteClick = (note: RecentNoteItem) => {
+    setDropdownVisible(false);
+    Modal.confirm({
+      title: '打开笔记',
+      content: `要如何打开「${note.name}」？`,
+      okText: '当前窗口',
+      cancelText: '新窗口',
+      closable: true,
+      onOk: () => {
+        onOpenRecentNote?.(note.filePath);
+      },
+      onCancel: async () => {
+        try {
+          await window.electronAPI.openNoteInNewWindow(note.filePath);
+        } catch (error: any) {
+          message.error(error.message || '打开新窗口失败');
+        }
+      },
+    });
+  };
+
+  const handleRemove = async (e: React.MouseEvent, filePath: string) => {
+    e.stopPropagation();
+    await window.electronAPI.recentNotes.remove(filePath);
+    loadRecentNotes();
+  };
+
+  const formatTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return '昨天';
+    if (diffDays < 7) return `${diffDays} 天前`;
+    return date.toLocaleDateString('zh-CN');
+  };
 
   const handleStartEdit = () => {
     setEditValue(noteName);
@@ -86,14 +142,94 @@ export default function TopBar({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {!hasNote ? (
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            size="large"
-            onClick={onCreateNew}
-          >
-            新建笔记
-          </Button>
+          <>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              size="large"
+              onClick={onCreateNew}
+            >
+              新建笔记
+            </Button>
+            <Dropdown
+              menu={{
+                items: recentNotes.length === 0 ? [{
+                  key: 'empty',
+                  label: (
+                    <Empty 
+                      description="暂无最近笔记" 
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      style={{ margin: '16px 0' }}
+                    />
+                  ),
+                  disabled: true,
+                }] : recentNotes.map(note => ({
+                  key: note.filePath,
+                  label: (
+                    <div 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '4px 0',
+                        position: 'relative',
+                        minWidth: '250px'
+                      }}
+                      onMouseEnter={(e) => {
+                        const del = e.currentTarget.querySelector('.recent-del') as HTMLElement;
+                        if (del) del.style.opacity = '1';
+                      }}
+                      onMouseLeave={(e) => {
+                        const del = e.currentTarget.querySelector('.recent-del') as HTMLElement;
+                        if (del) del.style.opacity = '0';
+                      }}
+                    >
+                      <FileTextOutlined style={{ fontSize: 16, color: '#1890ff', marginTop: '2px' }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: '13px', marginBottom: '2px' }}>
+                          {note.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#999' }}>
+                          {formatTime(note.openedAt)}
+                        </div>
+                      </div>
+                      <DeleteOutlined 
+                        className="recent-del"
+                        style={{ 
+                          fontSize: 12, 
+                          color: '#999', 
+                          opacity: 0, 
+                          transition: 'opacity 0.2s',
+                          cursor: 'pointer',
+                          padding: '4px'
+                        }}
+                        onClick={(e) => handleRemove(e, note.filePath)}
+                      />
+                    </div>
+                  ),
+                  onClick: () => handleRecentNoteClick(note),
+                })),
+                style: {
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                }
+              }}
+              trigger={['click']}
+              placement="bottomLeft"
+              open={dropdownVisible}
+              onOpenChange={(visible) => {
+                setDropdownVisible(visible);
+                if (visible) loadRecentNotes();
+              }}
+            >
+              <Button 
+                icon={<HistoryOutlined />}
+                size="large"
+              >
+                最近笔记 <DownOutlined style={{ fontSize: 10 }} />
+              </Button>
+            </Dropdown>
+          </>
         ) : isEditing ? (
           <Input
             value={editValue}
@@ -104,28 +240,100 @@ export default function TopBar({
             style={{ fontSize: 16, fontWeight: 500, maxWidth: 400 }}
           />
         ) : (
-          <div 
-            style={{ 
-              display: 'flex', alignItems: 'center', cursor: 'pointer',
-              padding: '4px 8px', borderRadius: 4, transition: 'background 0.3s',
+          <Dropdown
+            menu={{
+              items: recentNotes.length === 0 ? [{
+                key: 'empty',
+                label: (
+                  <Empty 
+                    description="暂无最近笔记" 
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    style={{ margin: '16px 0' }}
+                  />
+                ),
+                disabled: true,
+              }] : recentNotes.map(note => ({
+                key: note.filePath,
+                label: (
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      padding: '4px 0',
+                      position: 'relative',
+                      minWidth: '250px'
+                    }}
+                    onMouseEnter={(e) => {
+                      const del = e.currentTarget.querySelector('.recent-del') as HTMLElement;
+                      if (del) del.style.opacity = '1';
+                    }}
+                    onMouseLeave={(e) => {
+                      const del = e.currentTarget.querySelector('.recent-del') as HTMLElement;
+                      if (del) del.style.opacity = '0';
+                    }}
+                  >
+                    <FileTextOutlined style={{ fontSize: 16, color: '#1890ff', marginTop: '2px' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, fontSize: '13px', marginBottom: '2px' }}>
+                        {note.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#999' }}>
+                        {formatTime(note.openedAt)}
+                      </div>
+                    </div>
+                    <DeleteOutlined 
+                      className="recent-del"
+                      style={{ 
+                        fontSize: 12, 
+                        color: '#999', 
+                        opacity: 0, 
+                        transition: 'opacity 0.2s',
+                        cursor: 'pointer',
+                        padding: '4px'
+                      }}
+                      onClick={(e) => handleRemove(e, note.filePath)}
+                    />
+                  </div>
+                ),
+                onClick: () => handleRecentNoteClick(note),
+              })),
+              style: {
+                maxHeight: '400px',
+                overflowY: 'auto',
+              }
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = isPreviewMode ? '#bae0ff' : '#f5f5f5'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            onClick={handleStartEdit}
+            trigger={['click']}
+            placement="bottomLeft"
+            open={dropdownVisible}
+            onOpenChange={(visible) => {
+              setDropdownVisible(visible);
+              if (visible) loadRecentNotes();
+            }}
           >
-            {isPreviewMode ? (
-              <CloudOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
-            ) : (
-              <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
-            )}
-            <Title level={5} style={{ margin: 0, color: '#1677ff' }}>
-              {noteName}
-            </Title>
-            {isPreviewMode && (
-              <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>云端</Tag>
-            )}
-            <EditOutlined style={{ marginLeft: 8, fontSize: 12, color: '#8c8c8c' }} />
-          </div>
+            <div 
+              style={{ 
+                display: 'flex', alignItems: 'center', cursor: 'pointer',
+                padding: '4px 8px', borderRadius: 4, transition: 'background 0.3s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = isPreviewMode ? '#bae0ff' : '#f5f5f5'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              onDoubleClick={handleStartEdit}
+            >
+              {isPreviewMode ? (
+                <CloudOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+              ) : (
+                <FileTextOutlined style={{ marginRight: 8, color: '#1677ff', fontSize: 18 }} />
+              )}
+              <Title level={5} style={{ margin: 0, color: '#1677ff' }}>
+                {noteName}
+              </Title>
+              {isPreviewMode && (
+                <Tag color="blue" style={{ marginLeft: 8, fontSize: 11 }}>云端</Tag>
+              )}
+              <DownOutlined style={{ marginLeft: 8, fontSize: 10, color: '#8c8c8c' }} />
+            </div>
+          </Dropdown>
         )}
       </div>
 

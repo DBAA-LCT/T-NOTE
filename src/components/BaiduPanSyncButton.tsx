@@ -5,7 +5,7 @@ import type { BaiduSyncProgress } from '../types/baidupan-sync';
 
 interface BaiduPanSyncButtonProps {
   /** 获取当前笔记内容和名称的回调 */
-  getNoteData: () => { noteContent: string; noteName: string } | null;
+  getNoteData: () => { noteContent: string; noteName: string; noteId: string } | null;
   onSyncComplete?: () => void;
 }
 

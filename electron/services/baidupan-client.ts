@@ -316,7 +316,7 @@ export class BaiduPanClient {
       path: remotePath,
       size: '0',
       isdir: '1',
-      rtype: '1',
+      rtype: '0',  // 0 = 不重命名，如果已存在则报错（errno=-8），避免创建时间戳命名的重复目录
     });
 
     const resp = await this.fetchWithRetry(url, {

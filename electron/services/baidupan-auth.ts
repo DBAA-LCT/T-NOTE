@@ -32,10 +32,10 @@ export class BaiduPanAuth {
   }
 
   /** 启动 OAuth 授权流程 */
-  async authenticate(): Promise<BaiduUserInfo> {
-    logger.info('auth', '百度网盘: 开始 OAuth 授权');
+  async authenticate(forceLogin: boolean = false): Promise<BaiduUserInfo> {
+    logger.info('auth', '百度网盘: 开始 OAuth 授权', { forceLogin });
 
-    const code = await this.getAuthorizationCode();
+    const code = await this.getAuthorizationCode(forceLogin);
     await this.exchangeCodeForToken(code);
 
     const userInfo = await this.getUserInfo();
@@ -44,15 +44,25 @@ export class BaiduPanAuth {
   }
 
   /** 打开浏览器窗口获取授权码 */
-  private getAuthorizationCode(): Promise<string> {
+  private getAuthorizationCode(forceLogin: boolean = false): Promise<string> {
     return new Promise((resolve, reject) => {
-      const authUrl = `${BAIDU_OAUTH_CONFIG.authUrl}?response_type=code&client_id=${BAIDU_OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(BAIDU_OAUTH_CONFIG.redirectUri)}&scope=${BAIDU_OAUTH_CONFIG.scope}&display=popup&force_login=1`;
+      let authUrl = `${BAIDU_OAUTH_CONFIG.authUrl}?response_type=code&client_id=${BAIDU_OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(BAIDU_OAUTH_CONFIG.redirectUri)}&scope=${BAIDU_OAUTH_CONFIG.scope}&display=popup`;
+      
+      // 强制登录以支持多账号
+      if (forceLogin) {
+        authUrl += '&force_login=1';
+      }
 
       this.authWindow = new BrowserWindow({
         width: 800,
         height: 600,
         show: true,
-        webPreferences: { nodeIntegration: false, contextIsolation: true },
+        webPreferences: { 
+          nodeIntegration: false, 
+          contextIsolation: true,
+          // 使用独立的session以清除缓存
+          partition: forceLogin ? `persist:baidu-oauth-${Date.now()}` : 'persist:baidu-oauth',
+        },
       });
 
       this.authWindow.loadURL(authUrl);

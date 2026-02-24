@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Tooltip } from 'antd';
 import { 
   FileTextOutlined, 
@@ -6,14 +5,12 @@ import {
   CheckSquareOutlined,
   BookOutlined,
   DeleteOutlined,
-  CloudOutlined,
   CloudServerOutlined,
-  SettingOutlined,
-  HistoryOutlined
+  SettingOutlined
 } from '@ant-design/icons';
 import './IconBar.css';
 
-export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'settings' | 'cloudnotes' | 'cloudlist' | 'recent' | null;
+export type IconBarTab = 'pages' | 'search' | 'todo' | 'bookmarks' | 'trash' | 'settings' | 'cloudlist' | null;
 
 interface IconBarProps {
   activeTab: IconBarTab;
@@ -32,15 +29,6 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
 
   return (
     <div className="icon-bar">
-      <Tooltip title="最近笔记" placement="right">
-        <div 
-          className={`icon-item ${activeTab === 'recent' ? 'active' : ''}`}
-          onClick={() => handleIconClick('recent')}
-        >
-          <HistoryOutlined />
-        </div>
-      </Tooltip>
-
       <Tooltip title="页面" placement="right">
         <div 
           className={`icon-item ${activeTab === 'pages' ? 'active' : ''}`}
@@ -83,15 +71,6 @@ export default function IconBar({ activeTab, onTabChange }: IconBarProps) {
           onClick={() => handleIconClick('trash')}
         >
           <DeleteOutlined />
-        </div>
-      </Tooltip>
-
-      <Tooltip title="云端页面" placement="right">
-        <div 
-          className={`icon-item ${activeTab === 'cloudnotes' ? 'active' : ''}`}
-          onClick={() => handleIconClick('cloudnotes')}
-        >
-          <CloudOutlined />
         </div>
       </Tooltip>
 

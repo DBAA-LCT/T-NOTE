@@ -64,12 +64,15 @@ export function useCloudSync(provider: CloudProvider): UseCloudSyncReturn {
   const startSync = useCallback(async () => {
     setIsSyncing(true);
     try {
-      await api.sync();
+      if (provider === 'onedrive') {
+        await window.electronAPI.onedrive.sync();
+      }
+      // 百度网盘暂不支持全量同步，仅支持单笔记上传/下载
     } catch (error) {
       setIsSyncing(false);
       throw error;
     }
-  }, [api]);
+  }, [provider]);
 
   return {
     isAuthenticated,

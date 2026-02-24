@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { registerSyncHandlers } from './ipc/handlers';
 import { registerBaiduPanHandlers } from './ipc/baidupan-handlers';
+import { registerRemoteAccountsHandlers } from './ipc/remote-accounts-handlers';
 import { logger } from './utils/logger';
 
 let mainWindow: BrowserWindow | null = null;
@@ -139,12 +140,20 @@ function createWindow() {
   // Register Baidu Pan IPC handlers
   registerBaiduPanHandlers(mainWindow);
   logger.info('general', 'Baidu Pan handlers registered');
+
+  // Register Remote Accounts IPC handlers
+  registerRemoteAccountsHandlers();
+  logger.info('general', 'Remote Accounts handlers registered');
 }
 
 app.whenReady().then(async () => {
   // Initialize settings manager first
   const { ensureSettingsManagerInitialized } = require('./services/settings-manager');
   await ensureSettingsManagerInitialized();
+  
+  // Initialize remote accounts manager
+  const { ensureRemoteAccountsManagerInitialized } = require('./services/remote-accounts-manager');
+  await ensureRemoteAccountsManagerInitialized();
   
   createWindow();
 });

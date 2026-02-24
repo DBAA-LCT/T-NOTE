@@ -30,6 +30,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 新窗口打开笔记
   openNoteInNewWindow: (filePath: string) => ipcRenderer.invoke('open-note-in-new-window', filePath),
   
+  // 远程账号管理
+  remoteAccounts: {
+    getAll: () => ipcRenderer.invoke('remote-accounts:getAll'),
+    create: (params: { provider: string; displayName: string }) => ipcRenderer.invoke('remote-accounts:create', params),
+    delete: (accountId: string) => ipcRenderer.invoke('remote-accounts:delete', accountId),
+    setDefault: (accountId: string) => ipcRenderer.invoke('remote-accounts:setDefault', accountId),
+    isAuthenticated: (accountId: string) => ipcRenderer.invoke('remote-accounts:isAuthenticated', accountId),
+    authenticate: (accountId: string) => ipcRenderer.invoke('remote-accounts:authenticate', accountId),
+    disconnect: (accountId: string) => ipcRenderer.invoke('remote-accounts:disconnect', accountId),
+    getUserInfo: (accountId: string) => ipcRenderer.invoke('remote-accounts:getUserInfo', accountId),
+    getQuota: (accountId: string) => ipcRenderer.invoke('remote-accounts:getQuota', accountId),
+    getSyncFolder: (accountId: string) => ipcRenderer.invoke('remote-accounts:getSyncFolder', accountId),
+    setSyncFolder: (accountId: string, folderPath: string) => ipcRenderer.invoke('remote-accounts:setSyncFolder', accountId, folderPath),
+    browseFolders: (accountId: string, parentPath?: string) => ipcRenderer.invoke('remote-accounts:browseFolders', accountId, parentPath),
+    createFolder: (accountId: string, name: string, parentPath?: string) => ipcRenderer.invoke('remote-accounts:createFolder', accountId, name, parentPath),
+    getSyncSettings: (accountId: string) => ipcRenderer.invoke('remote-accounts:getSyncSettings', accountId),
+    updateSyncSetting: (accountId: string, key: string, value: boolean) => ipcRenderer.invoke('remote-accounts:updateSyncSetting', accountId, key, value),
+    getCloudNotes: (accountId: string) => ipcRenderer.invoke('remote-accounts:getCloudNotes', accountId),
+  },
+  
   // OneDrive Sync API
   onedrive: {
     // Authentication
@@ -129,7 +149,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateSyncSettings: (settings: any) => ipcRenderer.invoke(BAIDU_IPC_CHANNELS.SETTINGS_UPDATE, settings),
 
     // 同步
-    uploadNote: (params: { noteContent: string; noteName: string; cloudPath?: string }) =>
+    uploadNote: (params: { noteContent: string; noteName: string; noteId: string; currentFilePath?: string; cloudSource?: { provider: string; cloudFileId: string | number; cloudPath?: string } }) =>
       ipcRenderer.invoke(BAIDU_IPC_CHANNELS.SYNC_UPLOAD_NOTE, params),
     getCloudNotes: () => ipcRenderer.invoke(BAIDU_IPC_CHANNELS.SYNC_GET_CLOUD_NOTES),
     downloadNote: (fsId: number) => ipcRenderer.invoke(BAIDU_IPC_CHANNELS.SYNC_DOWNLOAD_NOTE, fsId),
