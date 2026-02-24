@@ -59,17 +59,7 @@ export class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       log.info('发现新版本:', info.version);
       this.sendStatusToWindow('update-available', info);
-      
-      // 显示通知
-      if (this.mainWindow) {
-        dialog.showMessageBox(this.mainWindow, {
-          type: 'info',
-          title: '发现新版本',
-          message: `发现新版本 ${info.version}`,
-          detail: '正在后台下载更新，下载完成后会通知您。',
-          buttons: ['确定']
-        });
-      }
+      // 不再弹出对话框，只发送事件到渲染进程显示红点提示
     });
 
     // 当前已是最新版本
@@ -89,24 +79,7 @@ export class UpdateManager {
     autoUpdater.on('update-downloaded', (info) => {
       log.info('更新下载完成:', info.version);
       this.sendStatusToWindow('update-downloaded', info);
-      
-      // 询问用户是否立即安装
-      if (this.mainWindow) {
-        dialog.showMessageBox(this.mainWindow, {
-          type: 'info',
-          title: '更新已下载',
-          message: `新版本 ${info.version} 已下载完成`,
-          detail: '是否立即重启应用并安装更新？',
-          buttons: ['立即安装', '稍后安装'],
-          defaultId: 0,
-          cancelId: 1
-        }).then((result) => {
-          if (result.response === 0) {
-            // 立即安装并重启
-            autoUpdater.quitAndInstall(false, true);
-          }
-        });
-      }
+      // 不弹出对话框，只发送事件到渲染进程，用户可以在关于页面手动安装
     });
   }
 
@@ -170,7 +143,21 @@ export class UpdateManager {
    * 安装更新并重启
    */
   quitAndInstall() {
-    autoUpdater.quitAndInstall(false, true);
+    try {
+      // 使用 setImmediate 确保在下一个事件循环中执行
+      setImmediate(() => {
+        autoUpdater.quitAndInstall(false, true);
+      });
+    } catch (error) {
+      log.error('安装更新失败:', error);
+      // 如果安装失败，尝试不强制重启的方式
+      try {
+        autoUpdater.quitAndInstall(true, false);
+      } catch (retryError) {
+        log.error('重试安装更新失败:', retryError);
+        throw retryError;
+      }
+    }
   }
 }
 

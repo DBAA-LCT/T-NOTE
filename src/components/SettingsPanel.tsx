@@ -1,9 +1,10 @@
-import { List, Typography } from 'antd';
+import { List, Typography, Badge } from 'antd';
 import { 
   CloudOutlined,
   RightOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
 
 const { Text } = Typography;
 
@@ -15,18 +16,39 @@ interface SettingsPanelProps {
 }
 
 export default function SettingsPanel({ activeItem, onSelectItem }: SettingsPanelProps) {
+  const [hasUpdate, setHasUpdate] = useState(false);
+
+  useEffect(() => {
+    if (!window.electronAPI?.update) return;
+
+    const removeListener = window.electronAPI.update.onUpdateStatus((data) => {
+      const { event } = data;
+      
+      // 当检测到更新可用或更新已下载时，显示红点
+      if (event === 'update-available' || event === 'update-downloaded') {
+        setHasUpdate(true);
+      }
+    });
+
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, []);
+
   const settingsItems = [
     {
       id: 'cloud-storage' as SettingsItem,
       name: '云存储设置',
       icon: <CloudOutlined style={{ fontSize: 20, color: '#1677ff' }} />,
-      description: '管理云端账号和同步设置'
+      description: '管理云端账号和同步设置',
+      showBadge: false
     },
     {
       id: 'about' as SettingsItem,
       name: '关于 T-Note',
       icon: <InfoCircleOutlined style={{ fontSize: 20, color: '#1677ff' }} />,
-      description: '版本信息和应用更新'
+      description: '版本信息和应用更新',
+      showBadge: hasUpdate
     }
   ];
 
@@ -79,7 +101,9 @@ export default function SettingsPanel({ activeItem, onSelectItem }: SettingsPane
               width: '100%'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                {item.icon}
+                <Badge dot={item.showBadge} offset={[-2, 2]}>
+                  {item.icon}
+                </Badge>
                 <div style={{ flex: 1 }}>
                   <Text strong>{item.name}</Text>
                   <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>

@@ -34,7 +34,7 @@ export default function AboutPanel() {
           setUpdateAvailable(true);
           setUpdateInfo(eventData);
           setDownloading(true);
-          message.info(`发现新版本 ${eventData.version}，正在下载...`);
+          // 不再显示消息提示，只在设置菜单显示红点
           break;
 
         case 'update-not-available':
@@ -48,12 +48,9 @@ export default function AboutPanel() {
 
         case 'update-downloaded':
           setDownloading(false);
+          setUpdateAvailable(true); // 保持 updateAvailable 为 true
           setUpdateInfo(eventData);
-          message.success({
-            content: '更新已下载完成，点击"立即安装"重启应用',
-            duration: 0,
-            key: 'update-downloaded'
-          });
+          // 不再显示消息提示，用户可以在关于页面看到更新状态
           break;
 
         case 'update-error':

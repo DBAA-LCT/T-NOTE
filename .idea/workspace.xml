@@ -4,7 +4,8 @@
     <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/services/update-manager.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/update-manager.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/修改日志.md" beforeDir="false" afterPath="$PROJECT_DIR$/修改日志.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/AboutPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/AboutPanel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/SettingsPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/SettingsPanel.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -142,7 +143,7 @@
       <workItem from="1771899487868" duration="884000" />
       <workItem from="1771900820707" duration="3716000" />
       <workItem from="1771905045033" duration="2253000" />
-      <workItem from="1771911488151" duration="14640000" />
+      <workItem from="1771911488151" duration="15468000" />
     </task>
     <servers />
   </component>
