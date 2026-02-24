@@ -8,12 +8,7 @@
     "dev:renderer": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron .",
     "build": "tsc -p tsconfig.electron.json && vite build",
-    "package": "npm run build && electron-builder",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:unit": "jest --testPathPattern=unit",
-    "test:property": "jest --testPathPattern=property"
+    "package": "npm run build && electron-builder"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -59,7 +54,7 @@
           "ext": "note",
           "name": "T-Note Document",
           "description": "T-Note笔记文件",
-          "icon": "release/.icon-ico/note-icon.ico",
+          "icon": "release/.icon-ico/icon.ico",
           "role": "Editor"
         }
       ]
