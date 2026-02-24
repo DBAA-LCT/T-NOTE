@@ -45,13 +45,8 @@ async function generateIcoFromPng() {
   // 合并
   const ico = Buffer.concat([header, entry, pngData]);
   
-  const outputPath = path.join(__dirname, '..', 'release', '.icon-ico', 'note-icon.ico');
-  
-  // 确保目录存在
-  const outputDir = path.dirname(outputPath);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  // 输出到 build 目录，方便 electron-builder 打包时使用
+  const outputPath = path.join(__dirname, '..', 'build', 'note-icon.ico');
   
   fs.writeFileSync(outputPath, ico);
   console.log(`✅ 已生成 .note 文件图标: ${outputPath}`);

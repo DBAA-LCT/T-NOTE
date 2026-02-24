@@ -171,5 +171,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener(BAIDU_IPC_CHANNELS.EVENT_SYNC_ERROR, listener);
     },
   },
+  
+  // 应用更新 API
+  update: {
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('download-update'),
+    quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+    onUpdateStatus: (callback: (data: { event: string; data?: any }) => void) => {
+      const listener = (_: any, data: any) => callback(data);
+      ipcRenderer.on('update-status', listener);
+      return () => ipcRenderer.removeListener('update-status', listener);
+    },
+  },
 });
 

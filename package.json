@@ -1,12 +1,13 @@
 {
   "name": "t-note",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "T-Note - 本地富文本笔记编辑器",
   "main": "dist/electron/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:renderer": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron .",
+    "prebuild": "node scripts/generate-note-ico.js",
     "build": "tsc -p tsconfig.electron.json && vite build",
     "package": "npm run build && electron-builder"
   },
@@ -14,6 +15,8 @@
     "@ant-design/icons": "^6.1.0",
     "antd": "^6.2.3",
     "dayjs": "^1.11.19",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "quill": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -54,7 +57,7 @@
           "ext": "note",
           "name": "T-Note Document",
           "description": "T-Note笔记文件",
-          "icon": "release/.icon-ico/icon.ico",
+          "icon": "build/note-icon.ico",
           "role": "Editor"
         }
       ]
@@ -62,6 +65,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "DBAA-LCT",
+      "repo": "T-NOTE"
     },
     "extraMetadata": {
       "main": "dist/electron/main.js"

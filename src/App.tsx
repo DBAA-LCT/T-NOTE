@@ -13,6 +13,7 @@ import TrashPanel from './components/TrashPanel';
 import SettingsPanel, { SettingsItem } from './components/SettingsPanel';
 import RemoteAccountsPanel from './components/RemoteAccountsPanel';
 import CloudNotesPanel from './components/CloudNotesPanel';
+import AboutPanel from './components/AboutPanel';
 import TopBar from './components/TopBar';
 import PageTabs from './components/PageTabs';
 import './App.css';
@@ -846,8 +847,11 @@ function App() {
           />
         );
       case 'settings':
-        // 设置面板现在直接显示在主区域，不需要侧边栏
-        return null;
+        // 设置面板在侧边栏显示
+        return <SettingsPanel 
+          activeItem={activeSettingsItem}
+          onSelectItem={setActiveSettingsItem}
+        />;
       case 'cloudlist':
         return <CloudNotesPanel
           currentNote={note}
@@ -904,8 +908,31 @@ function App() {
       return null;
     }
 
-    // 统一使用远程账号管理面板
-    return <RemoteAccountsPanel />;
+    // 根据选中的设置项显示不同的面板
+    switch (activeSettingsItem) {
+      case 'cloud-storage':
+        // 显示云存储账号管理面板
+        return <RemoteAccountsPanel />;
+      case 'about':
+        // 显示关于面板
+        return <AboutPanel />;
+      default:
+        // 默认显示提示信息
+        return (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            background: '#fafafa'
+          }}>
+            <div style={{ textAlign: 'center', color: '#999' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>⚙️</div>
+              <div style={{ fontSize: 16 }}>请从左侧选择设置项</div>
+            </div>
+          </div>
+        );
+    }
   };
 
   // ---- 预览模式操作 ----

@@ -169,6 +169,14 @@ export interface ElectronAPI {
     onSyncComplete: (callback: (data: BaiduSyncComplete) => void) => () => void;
     onSyncError: (callback: (data: BaiduSyncErrorEvent) => void) => () => void;
   };
+  
+  // 应用更新 API
+  update: {
+    checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+    quitAndInstall: () => Promise<void>;
+    onUpdateStatus: (callback: (data: { event: string; data?: any }) => void) => () => void;
+  };
 }
 
 declare global {

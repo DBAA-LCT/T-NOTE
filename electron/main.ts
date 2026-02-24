@@ -5,6 +5,7 @@ import { registerSyncHandlers } from './ipc/handlers';
 import { registerBaiduPanHandlers } from './ipc/baidupan-handlers';
 import { registerRemoteAccountsHandlers } from './ipc/remote-accounts-handlers';
 import { logger } from './utils/logger';
+// import { updateManager } from './services/update-manager'; // 需要先安装 electron-updater 和 electron-log
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -144,6 +145,29 @@ function createWindow() {
   // Register Remote Accounts IPC handlers
   registerRemoteAccountsHandlers();
   logger.info('general', 'Remote Accounts handlers registered');
+  
+  // Register Update IPC handlers（需要先安装 electron-updater）
+  // ipcMain.handle('check-for-updates', async () => {
+  //   try {
+  //     await updateManager.checkForUpdates();
+  //     return { success: true };
+  //   } catch (error: any) {
+  //     return { success: false, error: error.message };
+  //   }
+  // });
+  
+  // ipcMain.handle('download-update', async () => {
+  //   try {
+  //     await updateManager.downloadUpdate();
+  //     return { success: true };
+  //   } catch (error: any) {
+  //     return { success: false, error: error.message };
+  //   }
+  // });
+  
+  // ipcMain.handle('quit-and-install', () => {
+  //   updateManager.quitAndInstall();
+  // });
 }
 
 app.whenReady().then(async () => {
@@ -156,6 +180,12 @@ app.whenReady().then(async () => {
   await ensureRemoteAccountsManagerInitialized();
   
   createWindow();
+  
+  // 初始化更新管理器（需要先安装 electron-updater）
+  // if (mainWindow) {
+  //   updateManager.setMainWindow(mainWindow);
+  //   updateManager.startAutoCheck(4);
+  // }
 });
 
 app.on('window-all-closed', () => {
