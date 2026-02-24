@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="" />
+    <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/services/update-manager.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/update-manager.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/修改日志.md" beforeDir="false" afterPath="$PROJECT_DIR$/修改日志.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -18,29 +22,29 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "D:/code/Note/build",
-    "nodejs_package_manager_path": "npm",
-    "npm.build.executor": "Run",
-    "npm.dev.executor": "Run",
-    "npm.dev:electron.executor": "Run",
-    "npm.dev:renderer.executor": "Run",
-    "npm.install electron-updater electron-log.executor": "Run",
-    "npm.install.executor": "Run",
-    "npm.package.executor": "Run",
-    "npm.start.executor": "Run",
-    "ts.external.directory.path": "D:\\code\\Note\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/code/Note/build&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.build.executor&quot;: &quot;Run&quot;,
+    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
+    &quot;npm.dev:electron.executor&quot;: &quot;Run&quot;,
+    &quot;npm.dev:renderer.executor&quot;: &quot;Run&quot;,
+    &quot;npm.install electron-updater electron-log.executor&quot;: &quot;Run&quot;,
+    &quot;npm.install.executor&quot;: &quot;Run&quot;,
+    &quot;npm.package.executor&quot;: &quot;Run&quot;,
+    &quot;npm.start.executor&quot;: &quot;Run&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\code\\Note\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\code\Note\build" />
@@ -100,8 +104,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="npm.package" />
-        <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.build" />
+        <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.dev:renderer" />
         <item itemvalue="npm.dev" />
       </list>
@@ -138,6 +142,7 @@
       <workItem from="1771899487868" duration="884000" />
       <workItem from="1771900820707" duration="3716000" />
       <workItem from="1771905045033" duration="2253000" />
+      <workItem from="1771911488151" duration="14640000" />
     </task>
     <servers />
   </component>

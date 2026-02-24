@@ -22,6 +22,12 @@ export class UpdateManager {
 
     // 配置更新服务器（使用 package.json 中的 publish 配置）
     // autoUpdater 会自动读取 package.json 中的 publish 配置
+    
+    // 允许使用预发布版本（pre-release）
+    autoUpdater.allowPrerelease = true;
+    
+    // 允许降级（如果需要的话）
+    autoUpdater.allowDowngrade = false;
 
     this.setupEventHandlers();
   }
