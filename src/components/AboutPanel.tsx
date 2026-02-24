@@ -260,7 +260,7 @@ export default function AboutPanel() {
 
           <div style={{ textAlign: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              © 2024 T-Note. All rights reserved.
+              © 2026 T-Note. All rights reserved.
             </Text>
           </div>
         </Space>
