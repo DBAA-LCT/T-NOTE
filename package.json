@@ -1,8 +1,12 @@
 {
   "name": "t-note",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "T-Note - 本地富文本笔记编辑器",
   "main": "dist/electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DBAA-LCT/T-NOTE.git"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:renderer": "vite",

@@ -240,7 +240,7 @@ export default function AboutPanel() {
           <div>
             <Button 
               icon={<GithubOutlined />}
-              href="https://github.com/your-username/t-note"
+              href="https://github.com/DBAA-LCT/T-NOTE"
               target="_blank"
               style={{ marginRight: 8 }}
             >
