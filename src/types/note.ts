@@ -29,6 +29,7 @@ export interface Page {
   content: string;
   tags: string[];
   bookmarks?: Bookmark[];
+  longCodeBlocks?: Record<string, { content: string; language: string; title: string }>; // 长代码块存储
   markerPosition?: number;
   scrollPosition?: number;
   createdAt: number;

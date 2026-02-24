@@ -28,6 +28,7 @@ const stripHtml = (html: string): string => {
 // 在组件外部注册自定义格式（只注册一次）
 const Quill = ReactQuill.Quill;
 const Inline = Quill.import('blots/inline') as any;
+const BlockEmbed = Quill.import('blots/block/embed') as any;
 
 class BookmarkBlot extends Inline {
   static blotName = 'bookmark';
@@ -83,6 +84,77 @@ class TodoBlot extends Inline {
   }
 }
 
+// 长代码块 Blot - 不渲染内容，只显示占位符
+class LongCodeBlot extends BlockEmbed {
+  static blotName = 'longcode';
+  static tagName = 'div';
+  static className = 'ql-longcode';
+
+  static create(value: any) {
+    const node = super.create();
+    node.setAttribute('contenteditable', 'false');
+    node.setAttribute('data-code-id', value.id || crypto.randomUUID());
+    node.setAttribute('data-language', value.language || 'text');
+    node.setAttribute('data-title', value.title || '长代码块');
+    node.setAttribute('data-lines', value.lines || '0');
+    
+    // 创建占位符显示 - 简洁版
+    const placeholder = document.createElement('div');
+    placeholder.className = 'longcode-placeholder';
+    placeholder.style.cssText = `
+      padding: 8px 12px;
+      background: rgb(245, 245, 245);
+      border-left: 3px solid #1677ff;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 4px 0;
+      user-select: none;
+    `;
+    
+    const title = value.title || '长代码块';
+    placeholder.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 14px;">📄</span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 13px; color: #262626; font-weight: 500;">${title}</span>
+          <span style="font-size: 12px; color: #8c8c8c;">
+            ${value.language || 'text'} · ${value.lines || 0} 行
+          </span>
+        </div>
+      </div>
+      <span style="font-size: 12px; color: #8c8c8c;">双击编辑</span>
+    `;
+    
+    // 添加悬停效果
+    placeholder.addEventListener('mouseenter', () => {
+      placeholder.style.background = '#e6f4ff';
+      placeholder.style.borderLeftColor = '#0958d9';
+    });
+    
+    placeholder.addEventListener('mouseleave', () => {
+      placeholder.style.background = 'rgb(245, 245, 245)';
+      placeholder.style.borderLeftColor = '#1677ff';
+    });
+    
+    node.appendChild(placeholder);
+    
+    return node;
+  }
+
+  static value(node: HTMLElement) {
+    return {
+      id: node.getAttribute('data-code-id'),
+      language: node.getAttribute('data-language'),
+      title: node.getAttribute('data-title'),
+      lines: node.getAttribute('data-lines')
+    };
+  }
+}
+
 // 注册自定义格式（使用try-catch避免重复注册错误）
 try {
   Quill.register(BookmarkBlot);
@@ -96,6 +168,13 @@ try {
   console.log('✅ Todo format registered');
 } catch (error) {
   console.log('⚠️ Todo format already registered');
+}
+
+try {
+  Quill.register(LongCodeBlot);
+  console.log('✅ LongCode format registered');
+} catch (error) {
+  console.log('⚠️ LongCode format already registered');
 }
 
 // Table functionality - using simple HTML table insertion
@@ -133,6 +212,18 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  
+  // 大内容处理
+  const [isLargeContent, setIsLargeContent] = useState(false);
+  const [isVeryLargeContent, setIsVeryLargeContent] = useState(false);
+  const [forceEditMode, setForceEditMode] = useState(false);
+  const [useTextEditor, setUseTextEditor] = useState(false);
+  const [textContent, setTextContent] = useState('');
+  const [editAsHtml, setEditAsHtml] = useState(false);
+  const [isLoadingLargeContent, setIsLoadingLargeContent] = useState(false); // 正在加载大内容
+  const [loadingProgress, setLoadingProgress] = useState(0); // 加载进度
+  const LARGE_CONTENT_THRESHOLD = 50000; // 50KB
+  const VERY_LARGE_CONTENT_THRESHOLD = 200000; // 200KB
   
   // 图片预览相关状态
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
@@ -173,6 +264,125 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const [tableRows, setTableRows] = useState(3);
   const [tableCols, setTableCols] = useState(3);
 
+  // 长代码块相关状态
+  const [longCodeModalOpen, setLongCodeModalOpen] = useState(false);
+  const [longCodeContent, setLongCodeContent] = useState('');
+  const [longCodeLanguage, setLongCodeLanguage] = useState('javascript');
+  const [longCodeTitle, setLongCodeTitle] = useState('长代码块'); // 代码标题
+  const [editingLongCodeId, setEditingLongCodeId] = useState<string | null>(null);
+  const [longCodeMap, setLongCodeMap] = useState<Map<string, { content: string; language: string; title: string }>>(new Map());
+  const [savedCursorPosition, setSavedCursorPosition] = useState<number | null>(null); // 保存光标位置
+
+  // 检测内容大小
+  useEffect(() => {
+    if (!page) return;
+    
+    const contentSize = page.content?.length || 0;
+    const isLarge = contentSize > LARGE_CONTENT_THRESHOLD;
+    const isVeryLarge = contentSize > VERY_LARGE_CONTENT_THRESHOLD;
+    
+    setIsLargeContent(isLarge);
+    setIsVeryLargeContent(isVeryLarge);
+    setForceEditMode(false);
+    setUseTextEditor(false);
+    setIsLoadingLargeContent(false);
+    setLoadingProgress(0);
+    
+    // 加载页面的长代码块
+    if (page.longCodeBlocks) {
+      const newMap = new Map<string, { content: string; language: string; title: string }>();
+      Object.entries(page.longCodeBlocks).forEach(([id, data]) => {
+        // 兼容旧数据，如果没有 title 则使用默认值
+        newMap.set(id, {
+          content: data.content,
+          language: data.language,
+          title: data.title || '长代码块'
+        });
+      });
+      setLongCodeMap(newMap);
+    } else {
+      setLongCodeMap(new Map());
+    }
+    
+    if (isLarge) {
+      const sizeKB = Math.round(contentSize / 1024);
+      message.info(`正在加载大型内容（${sizeKB}KB），请稍候...`, 2);
+    }
+  }, [page?.id, page?.content?.length]);
+
+  // 大内容延迟渲染 - 模拟 Word 的加载行为
+  useEffect(() => {
+    if (!page || !isVeryLargeContent || useTextEditor) return;
+    
+    setIsLoadingLargeContent(true);
+    setLoadingProgress(0);
+    
+    // 使用 setTimeout 分批处理，避免阻塞主线程
+    const timer = setTimeout(() => {
+      setLoadingProgress(30);
+      
+      setTimeout(() => {
+        setLoadingProgress(60);
+        
+        setTimeout(() => {
+          setLoadingProgress(90);
+          
+          setTimeout(() => {
+            setLoadingProgress(100);
+            setIsLoadingLargeContent(false);
+          }, 300);
+        }, 300);
+      }, 300);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [page?.id, isVeryLargeContent, useTextEditor]);
+
+  // 将 HTML 转换为纯文本用于文本编辑器
+  const htmlToText = (html: string): string => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  // 将纯文本转换回 HTML（保留换行）
+  const textToHtml = (text: string): string => {
+    return text
+      .split('\n')
+      .map(line => `<p>${line || '<br>'}</p>`)
+      .join('');
+  };
+
+  // 进入文本编辑模式
+  const enterTextEditMode = (asHtml: boolean = false) => {
+    if (!page) return;
+    if (asHtml) {
+      // 编辑 HTML 源码
+      setTextContent(page.content);
+      setEditAsHtml(true);
+    } else {
+      // 编辑纯文本
+      const text = htmlToText(page.content);
+      setTextContent(text);
+      setEditAsHtml(false);
+    }
+    setUseTextEditor(true);
+  };
+
+  // 保存文本编辑
+  const saveTextEdit = () => {
+    if (editAsHtml) {
+      // 直接保存 HTML
+      onUpdatePage({ content: textContent });
+    } else {
+      // 转换纯文本为 HTML
+      const html = textToHtml(textContent);
+      onUpdatePage({ content: html });
+    }
+    setUseTextEditor(false);
+    message.success('内容已保存');
+  };
+
   // 暴露跳转方法给父组件
   useImperativeHandle(ref, () => ({
     jumpToBookmark: (bookmarkId: string) => {
@@ -202,9 +412,10 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     const handleClick = (e: MouseEvent) => {
       let target = e.target as HTMLElement;
       
-      // 向上查找，检查是否点击在书签或待办上（支持嵌套元素）
+      // 向上查找，检查是否点击在书签、待办或长代码块上
       let bookmarkElement: HTMLElement | null = null;
       let todoElement: HTMLElement | null = null;
+      let longCodeElement: HTMLElement | null = null;
       
       let current: HTMLElement | null = target;
       while (current && current !== editorContainerRef.current) {
@@ -214,11 +425,14 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         if (current.classList.contains('ql-todo')) {
           todoElement = current;
         }
-        if (bookmarkElement || todoElement) break;
+        if (current.classList.contains('ql-longcode')) {
+          longCodeElement = current;
+        }
+        if (bookmarkElement || todoElement || longCodeElement) break;
         current = current.parentElement;
       }
       
-      const clickedElement = bookmarkElement || todoElement;
+      const clickedElement = bookmarkElement || todoElement || longCodeElement;
       if (!clickedElement) return;
       
       // 如果点击的是同一个元素
@@ -240,6 +454,25 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         if (clickTimer) clearTimeout(clickTimer);
         clickCount = 0;
         lastTarget = null;
+        
+        // 处理长代码块双击
+        if (longCodeElement) {
+          const codeId = longCodeElement.getAttribute('data-code-id');
+          console.log('双击长代码块:', codeId, '当前 Map:', longCodeMap);
+          if (codeId) {
+            const codeData = longCodeMap.get(codeId);
+            if (codeData) {
+              setLongCodeContent(codeData.content);
+              setLongCodeLanguage(codeData.language);
+              setLongCodeTitle(codeData.title || '长代码块');
+              setEditingLongCodeId(codeId);
+              setLongCodeModalOpen(true);
+            } else {
+              message.warning('未找到代码内容，可能已被删除');
+            }
+          }
+          return;
+        }
         
         // 获取书签和待办信息
         const bookmarkId = bookmarkElement?.getAttribute('data-bookmark-id');
@@ -304,7 +537,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         if (clickTimer) clearTimeout(clickTimer);
       };
     }
-  }, [page?.id, todos?.length]); // 减少依赖项，只依赖 ID 和长度
+  }, [page?.id, todos?.length, longCodeMap]); // 添加 longCodeMap 依赖
 
   // 监听图片双击事件，实现预览功能
   useEffect(() => {
@@ -660,6 +893,129 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     };
   }, [page, todos, onUpdatePage, onUpdateTodo, onDeleteTodo]);
 
+  // 监听代码块，自动转换超过5行的代码块为长代码块
+  useEffect(() => {
+    if (!page) return;
+
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const handleTextChange = (delta: any, oldDelta: any, source: string) => {
+      if (source !== 'user') return;
+
+      const contents = quill.getContents();
+      const ops = contents.ops || [];
+      
+      // 找到所有带 code-block 属性的 ops（每个代表一行）
+      const codeBlockOps = ops.filter((op: any) => op.attributes && op.attributes['code-block']);
+      const lineCount = codeBlockOps.length;
+      
+      console.log('代码块行数:', lineCount);
+      
+      // 如果超过100行，触发转换
+      if (lineCount > 100) {
+        console.log('触发转换! 行数:', lineCount);
+        
+        // 延迟执行，避免在 text-change 事件中修改内容
+        setTimeout(() => {
+          const currentOps = quill.getContents().ops || [];
+          
+          // 重新理解 Quill 代码块结构：
+          // 代码块每一行 = 文本内容(可能没有code-block属性) + \n(有code-block属性)
+          // 需要收集所有连续的 code-block 行及其前面的内容
+          
+          let codeLines: string[] = [];
+          let codeBlockStart = -1;
+          let codeBlockEnd = -1;
+          let currentIndex = 0;
+          let inCodeBlock = false;
+          let pendingText = ''; // 暂存可能属于代码块的文本
+          
+          for (let i = 0; i < currentOps.length; i++) {
+            const op = currentOps[i];
+            const nextOp = i < currentOps.length - 1 ? currentOps[i + 1] : null;
+            const text = op.insert;
+            const hasCodeBlock = op.attributes && op.attributes['code-block'];
+            const nextHasCodeBlock = nextOp?.attributes && nextOp.attributes['code-block'];
+            
+            if (typeof text === 'string') {
+              if (hasCodeBlock) {
+                // 这是代码块的换行符
+                if (!inCodeBlock) {
+                  codeBlockStart = currentIndex - pendingText.length;
+                  inCodeBlock = true;
+                }
+                // 添加前面暂存的文本作为这一行的内容
+                codeLines.push(pendingText);
+                pendingText = '';
+                codeBlockEnd = currentIndex + text.length;
+              } else if (nextHasCodeBlock) {
+                // 这是代码块行的内容（下一个是 code-block 的 \n）
+                pendingText = text;
+              } else if (inCodeBlock) {
+                // 代码块结束
+                break;
+              }
+              currentIndex += text.length;
+            } else {
+              if (inCodeBlock) {
+                break;
+              }
+              currentIndex += 1;
+            }
+          }
+          
+          const codeContent = codeLines.join('\n');
+          console.log('收集到的代码:', { start: codeBlockStart, end: codeBlockEnd, lines: codeLines.length, content: codeContent.substring(0, 100) });
+          
+          if (codeBlockStart !== -1 && codeContent) {
+            console.log('开始转换为长代码块...');
+            // 创建长代码块
+            const codeId = crypto.randomUUID();
+            const newMap = new Map(longCodeMap);
+            newMap.set(codeId, {
+              content: codeContent.trim(),
+              language: 'text',
+              title: '长代码块'
+            });
+            setLongCodeMap(newMap);
+            
+            // 保存到页面数据
+            const longCodeBlocks: Record<string, { content: string; language: string; title: string }> = {};
+            newMap.forEach((value, key) => {
+              longCodeBlocks[key] = value;
+            });
+            onUpdatePage({ longCodeBlocks });
+            
+            console.log('删除原代码块:', codeBlockStart, codeBlockEnd - codeBlockStart);
+            // 删除原代码块
+            quill.deleteText(codeBlockStart, codeBlockEnd - codeBlockStart, 'silent');
+            
+            console.log('插入长代码块占位符');
+            // 插入长代码块占位符
+            quill.insertEmbed(codeBlockStart, 'longcode', {
+              id: codeId,
+              language: 'text',
+              title: '长代码块',
+              lines: lineCount
+            }, 'silent');
+            
+            quill.insertText(codeBlockStart + 1, '\n', 'silent');
+            
+            message.success(`代码块超过100行（${lineCount} 行），为优化编辑器性能已自动转换为长代码块。双击占位符可查看/编辑完整代码。`, 5);
+          } else {
+            console.log('转换失败: 没有收集到代码内容');
+          }
+        }, 100);
+      }
+    };
+
+    quill.on('text-change', handleTextChange);
+    return () => {
+      quill.off('text-change', handleTextChange);
+    };
+  }, [page, longCodeMap, onUpdatePage]);
+
   useEffect(() => {
     // 为工具栏按钮添加中文提示
     const toolbar = document.querySelector('.ql-toolbar');
@@ -941,13 +1297,84 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     }
     tableHTML += '</table><p><br></p>';
     
-    // 插入表格
-    const delta = quill.clipboard.convert({ html: tableHTML });
-    quill.updateContents(delta, 'user');
-    quill.setSelection(index + delta.length(), 0);
+    // 插入表格 - 使用 dangerouslyPasteHTML 避免 clipboard.convert 的递归问题
+    try {
+      quill.clipboard.dangerouslyPasteHTML(index, tableHTML, 'user');
+      quill.setSelection(index + 1, 0);
+    } catch (error) {
+      console.error('Table insertion error:', error);
+      message.error('表格插入失败');
+      return;
+    }
     
     setTablePopoverOpen(false);
     message.success(`已插入 ${tableRows}×${tableCols} 表格`);
+  };
+
+  // 插入长代码块
+  const insertLongCodeBlock = () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    // 保存当前光标位置
+    const selection = quill.getSelection();
+    const cursorPos = selection ? selection.index : quill.getLength();
+    setSavedCursorPosition(cursorPos);
+    
+    setLongCodeContent('');
+    setLongCodeLanguage('javascript');
+    setLongCodeTitle('长代码块');
+    setEditingLongCodeId(null);
+    setLongCodeModalOpen(true);
+  };
+
+  // 保存长代码块
+  const saveLongCode = () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+
+    const lines = longCodeContent.split('\n').length;
+    const codeId = editingLongCodeId || crypto.randomUUID();
+
+    // 保存到 Map
+    const newMap = new Map(longCodeMap);
+    newMap.set(codeId, {
+      content: longCodeContent,
+      language: longCodeLanguage,
+      title: longCodeTitle || '长代码块'
+    });
+    setLongCodeMap(newMap);
+
+    // 保存到页面数据
+    const longCodeBlocks: Record<string, { content: string; language: string; title: string }> = {};
+    newMap.forEach((value, key) => {
+      longCodeBlocks[key] = value;
+    });
+    onUpdatePage({ longCodeBlocks });
+
+    if (editingLongCodeId) {
+      // 更新现有代码块
+      message.success('长代码块已更新');
+    } else {
+      // 插入新代码块 - 使用保存的光标位置
+      const insertPos = savedCursorPosition !== null ? savedCursorPosition : quill.getLength();
+      
+      quill.insertEmbed(insertPos, 'longcode', {
+        id: codeId,
+        language: longCodeLanguage,
+        title: longCodeTitle || '长代码块',
+        lines: lines
+      }, 'user');
+      
+      quill.insertText(insertPos + 1, '\n', 'user');
+      quill.setSelection(insertPos + 2, 0);
+      
+      message.success(`已插入长代码块（${lines} 行）`);
+    }
+
+    setLongCodeModalOpen(false);
+    setEditingLongCodeId(null);
+    setSavedCursorPosition(null);
   };
 
 
@@ -1819,6 +2246,138 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         </div>
       </Modal>
 
+      {/* 长代码块编辑对话框 */}
+      <Modal
+        title={editingLongCodeId ? "编辑长代码块" : "插入长代码块"}
+        open={longCodeModalOpen}
+        onOk={saveLongCode}
+        onCancel={() => {
+          setLongCodeModalOpen(false);
+          setEditingLongCodeId(null);
+        }}
+        okText="保存"
+        cancelText="取消"
+        width={1000}
+        style={{ top: 20 }}
+        styles={{ body: { maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' } }}
+      >
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>
+                代码标题
+              </Text>
+              <Input
+                value={longCodeTitle}
+                onChange={(e) => setLongCodeTitle(e.target.value)}
+                placeholder="长代码块"
+                maxLength={50}
+              />
+            </div>
+            <div>
+              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>
+                编程语言
+              </Text>
+              <Select
+                value={longCodeLanguage}
+                onChange={setLongCodeLanguage}
+                style={{ width: 180 }}
+                options={[
+                  { label: 'JavaScript', value: 'javascript' },
+                  { label: 'TypeScript', value: 'typescript' },
+                  { label: 'Python', value: 'python' },
+                  { label: 'Java', value: 'java' },
+                  { label: 'C++', value: 'cpp' },
+                  { label: 'C#', value: 'csharp' },
+                  { label: 'Go', value: 'go' },
+                  { label: 'Rust', value: 'rust' },
+                  { label: 'PHP', value: 'php' },
+                  { label: 'Ruby', value: 'ruby' },
+                  { label: 'HTML', value: 'html' },
+                  { label: 'CSS', value: 'css' },
+                  { label: 'SQL', value: 'sql' },
+                  { label: 'Shell', value: 'shell' },
+                  { label: 'JSON', value: 'json' },
+                  { label: 'XML', value: 'xml' },
+                  { label: 'Markdown', value: 'markdown' },
+                  { label: '纯文本', value: 'text' }
+                ]}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={{ fontSize: 12, color: '#666' }}>
+                代码内容
+              </Text>
+              <Text style={{ fontSize: 12, color: '#999' }}>
+                {longCodeContent.split('\n').length} 行 / {Math.round(longCodeContent.length / 1024)}KB
+              </Text>
+            </div>
+            
+            {/* 带行号的代码编辑器 */}
+            <div style={{
+              display: 'flex',
+              border: '1px solid #d9d9d9',
+              borderRadius: 4,
+              overflow: 'hidden',
+              background: '#fafafa',
+              minHeight: '400px'
+            }}>
+              {/* 行号列 */}
+              <div style={{
+                padding: '4px 8px',
+                background: '#f5f5f5',
+                borderRight: '1px solid #d9d9d9',
+                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: '#8c8c8c',
+                textAlign: 'right',
+                userSelect: 'none',
+                minWidth: '40px'
+              }}>
+                {longCodeContent.split('\n').map((_, i) => (
+                  <div key={i}>{i + 1}</div>
+                ))}
+              </div>
+              
+              {/* 代码输入区 */}
+              <TextArea
+                value={longCodeContent}
+                onChange={(e) => setLongCodeContent(e.target.value)}
+                placeholder="粘贴或输入代码..."
+                bordered={false}
+                autoSize={{ minRows: 25 }}
+                style={{
+                  flex: 1,
+                  fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  resize: 'none',
+                  background: '#fff',
+                  padding: '4px 8px',
+                  overflow: 'hidden'
+                }}
+                spellCheck={false}
+              />
+            </div>
+          </div>
+          
+          <div style={{
+            padding: '8px 12px',
+            background: '#e6f4ff',
+            border: '1px solid #91caff',
+            borderRadius: 4,
+            fontSize: 12,
+            color: '#0958d9'
+          }}>
+            💡 长代码块以占位符形式显示，不会影响编辑器性能。双击占位符可查看/编辑完整代码。
+          </div>
+        </div>
+      </Modal>
+
       {/* 选择对话框（当同时是书签和待办时） */}
       <Modal
         title="选择操作"
@@ -2097,6 +2656,22 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
             <button className="ql-code-block"></button>
           </div>
           <div className="ql-formats">
+            <button 
+              type="button"
+              onClick={insertLongCodeBlock}
+              title="插入长代码/长文本"
+              className="ql-longcode-btn"
+            >
+              <svg viewBox="0 0 18 18" style={{ width: '18px', height: '18px' }}>
+                {/* 文件图标 + 代码符号，区别于普通代码块 */}
+                <rect x="3" y="1" width="12" height="16" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
+                <line x1="6" y1="6" x2="12" y2="6" stroke="currentColor" strokeWidth="1"/>
+                <line x1="6" y1="9" x2="12" y2="9" stroke="currentColor" strokeWidth="1"/>
+                <line x1="6" y1="12" x2="10" y2="12" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+            </button>
+          </div>
+          <div className="ql-formats">
             <button className="ql-clean"></button>
           </div>
           <div className="ql-formats" id="bookmark-container">
@@ -2259,23 +2834,166 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
           </div>
         )}
         
-        <ReactQuill
-          ref={quillRef}
-          theme="snow"
-          value={page.content}
-          onChange={(content) => onUpdatePage({ content })}
-          modules={{
-            toolbar: {
-              container: '#toolbar-container'
-            }
-          }}
-          style={{ 
+        {/* 加载大内容动画 */}
+        {isLoadingLargeContent ? (
+          <div style={{
             height: 'calc(100% - 50px)',
             display: 'flex',
             flexDirection: 'column',
-            border: 'none'
-          }}
-        />
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#fafafa',
+            gap: 20
+          }}>
+            <div style={{ fontSize: 48 }}>�</div>
+            <div style={{ fontSize: 16, color: '#666' }}>
+              正在加载大型文档...
+            </div>
+            <div style={{ width: 300, height: 8, background: '#e8e8e8', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{
+                width: `${loadingProgress}%`,
+                height: '100%',
+                background: '#1677ff',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <div style={{ fontSize: 13, color: '#999' }}>
+              {Math.round((page.content?.length || 0) / 1024)}KB
+            </div>
+          </div>
+        ) : useTextEditor ? (
+          /* 文本编辑模式 */
+          <>
+            <div style={{
+              padding: '8px 16px',
+              background: '#e6f4ff',
+              border: '1px solid #91caff',
+              borderRadius: 6,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <span style={{ fontSize: 13, color: '#0958d9' }}>
+                  {editAsHtml ? '📄 HTML 源码编辑模式' : '📝 纯文本编辑模式'}
+                </span>
+                <span style={{ fontSize: 12, color: '#666' }}>
+                  {Math.round(textContent.length / 1024)}KB / {textContent.split('\n').length} 行
+                </span>
+              </div>
+              <Space>
+                <Button 
+                  type="primary"
+                  size="small"
+                  onClick={saveTextEdit}
+                >
+                  保存
+                </Button>
+                <Button 
+                  size="small"
+                  onClick={() => {
+                    Modal.confirm({
+                      title: '取消编辑',
+                      content: '确定要取消编辑吗？未保存的更改将丢失。',
+                      okText: '确定',
+                      cancelText: '继续编辑',
+                      onOk: () => setUseTextEditor(false)
+                    });
+                  }}
+                >
+                  取消
+                </Button>
+              </Space>
+            </div>
+            <TextArea
+              value={textContent}
+              onChange={(e) => setTextContent(e.target.value)}
+              style={{
+                height: 'calc(100% - 70px)',
+                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                fontSize: 13,
+                lineHeight: 1.6,
+                resize: 'none',
+                padding: '12px'
+              }}
+              placeholder="在此编辑内容..."
+              autoSize={false}
+              spellCheck={false}
+            />
+          </>
+        ) : isLargeContent ? (
+          /* 大内容只读预览 */
+          <>
+            <div style={{
+              padding: '8px 16px',
+              background: '#fff7e6',
+              border: '1px solid #ffd591',
+              borderRadius: 6,
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ fontSize: 13, color: '#d46b08' }}>
+                📄 大型文档（{Math.round((page.content?.length || 0) / 1024)}KB）- 只读模式
+              </div>
+              <Space>
+                <Button 
+                  type="primary"
+                  size="small"
+                  onClick={() => enterTextEditMode(true)}
+                >
+                  编辑
+                </Button>
+              </Space>
+            </div>
+            
+            <div style={{
+              height: 'calc(100% - 70px)',
+              overflow: 'auto',
+              padding: '20px',
+              background: '#fff',
+              border: '1px solid #e8e8e8',
+              borderRadius: 6
+            }}>
+              <div 
+                className="ql-editor"
+                dangerouslySetInnerHTML={{ __html: page.content }}
+                style={{
+                  fontSize: 14,
+                  lineHeight: 1.8,
+                  color: '#333',
+                  minHeight: '100%'
+                }}
+              />
+            </div>
+          </>
+        ) : (
+          /* 正常富文本编辑模式 */
+          <ReactQuill
+            ref={quillRef}
+            theme="snow"
+            value={page.content}
+            onChange={(content) => onUpdatePage({ content })}
+            modules={{
+              toolbar: {
+                container: '#toolbar-container'
+              },
+              clipboard: {
+                matchVisual: false
+              }
+            }}
+            style={{ 
+              height: 'calc(100% - 50px)',
+              display: 'flex',
+              flexDirection: 'column',
+              border: 'none'
+            }}
+            bounds="#toolbar-container"
+            preserveWhitespace={true}
+          />
+        )}
       </div>
     </Content>
     </>
