@@ -611,6 +611,12 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     const quill = quillRef.current?.getEditor();
     if (!quill) return;
 
+    // 页面切换时清除撤销历史，防止撤销到其他页面的内容
+    const history = quill.getModule('history') as { clear?: () => void } | null;
+    if (history && history.clear) {
+      history.clear();
+    }
+
     // 定位器标记符号
     const markerSymbol = '📍';
 
@@ -2816,7 +2822,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
               type="button"
               onClick={insertLongCodeBlock}
               title="插入长代码/长文本"
-              className="ql-longcode-btn"
+              className="custom-longcode-btn"
             >
               <svg viewBox="0 0 18 18" style={{ width: '18px', height: '18px' }}>
                 {/* 文件图标 + 代码符号，区别于普通代码块 */}
@@ -3052,6 +3058,11 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
                 },
                 clipboard: {
                   matchVisual: false
+                },
+                history: {
+                  delay: 1000,
+                  maxStack: 100,
+                  userOnly: true  // 只记录用户操作，忽略 'silent' 和 'api' 源的操作
                 }
               }}
               style={{ 

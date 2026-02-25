@@ -182,6 +182,27 @@ body {
   font-size: 16px;
 }
 
+/* 自定义长代码块按钮样式 */
+.custom-longcode-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #595959;
+  height: 24px;
+  width: 28px;
+  padding: 3px 5px;
+  border-radius: 3px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-longcode-btn:hover {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
 /* 书签面板折叠样式 */
 .ant-collapse-ghost > .ant-collapse-item {
   border: none;
