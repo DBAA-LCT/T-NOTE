@@ -177,6 +177,9 @@ export interface ElectronAPI {
     quitAndInstall: () => Promise<void>;
     onUpdateStatus: (callback: (data: { event: string; data?: any }) => void) => () => void;
   };
+  
+  // 应用信息 API
+  getAppVersion: () => Promise<string>;
 }
 
 declare global {

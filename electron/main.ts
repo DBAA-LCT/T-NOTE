@@ -168,6 +168,10 @@ function createWindow() {
   ipcMain.handle('quit-and-install', () => {
     updateManager.quitAndInstall();
   });
+  
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion();
+  });
 }
 
 app.whenReady().then(async () => {

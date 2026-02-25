@@ -183,5 +183,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('update-status', listener);
     },
   },
+  
+  // 应用信息 API
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 });
 

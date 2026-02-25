@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Button, Typography, Space, Divider, Card, Progress, message, Spin, Tag } from 'antd';
+import { Button, Typography, Space, Divider, Card, Progress, message, Spin, Tag, Modal } from 'antd';
 import { 
   CloudDownloadOutlined, 
   CheckCircleOutlined, 
   SyncOutlined,
   InfoCircleOutlined,
-  GithubOutlined
+  GithubOutlined,
+  CopyOutlined,
+  QqOutlined,
+  MailOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -16,7 +19,20 @@ export default function AboutPanel() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
-  const [currentVersion, setCurrentVersion] = useState('1.1.2');
+  const [currentVersion, setCurrentVersion] = useState('');
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+
+  useEffect(() => {
+    // 获取应用版本号
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then((version: string) => {
+        setCurrentVersion(version);
+      }).catch((error: any) => {
+        console.error('获取版本号失败:', error);
+        setCurrentVersion('未知');
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!window.electronAPI?.update) return;
@@ -87,6 +103,22 @@ export default function AboutPanel() {
     window.electronAPI.update.quitAndInstall();
   };
 
+  const handleCopyQQ = () => {
+    navigator.clipboard.writeText('518446027').then(() => {
+      message.success('QQ群号已复制到剪贴板');
+    }).catch(() => {
+      message.error('复制失败，请手动复制');
+    });
+  };
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText('good_luck_lct@163.com').then(() => {
+      message.success('邮箱地址已复制到剪贴板');
+    }).catch(() => {
+      message.error('复制失败，请手动复制');
+    });
+  };
+
   return (
     <div style={{ 
       padding: '24px',
@@ -119,7 +151,7 @@ export default function AboutPanel() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text type="secondary">开发者</Text>
-                <Text>T-Note Team</Text>
+                <Text>DBAA-LCT</Text>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text type="secondary">许可证</Text>
@@ -244,10 +276,7 @@ export default function AboutPanel() {
               GitHub
             </Button>
             <Button
-              onClick={() => {
-                // 可以添加反馈链接
-                message.info('反馈功能即将上线');
-              }}
+              onClick={() => setFeedbackModalVisible(true)}
             >
               反馈问题
             </Button>
@@ -262,6 +291,79 @@ export default function AboutPanel() {
           </div>
         </Space>
       </Card>
+
+      {/* 反馈问题弹窗 */}
+      <Modal
+        title="开发者信息"
+        open={feedbackModalVisible}
+        onCancel={() => setFeedbackModalVisible(false)}
+        footer={null}
+        width={480}
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong>
+                <QqOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+                QQ交流群
+              </Text>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              background: '#f5f5f5',
+              borderRadius: '6px'
+            }}>
+              <Text copyable={false} style={{ fontSize: 16 }}>518446027</Text>
+              <Button 
+                type="primary" 
+                icon={<CopyOutlined />}
+                onClick={handleCopyQQ}
+                size="small"
+              >
+                复制
+              </Button>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong>
+                <MailOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+                开发者邮箱
+              </Text>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              background: '#f5f5f5',
+              borderRadius: '6px'
+            }}>
+              <Text copyable={false} style={{ fontSize: 14 }}>good_luck_lct@163.com</Text>
+              <Button 
+                type="primary" 
+                icon={<CopyOutlined />}
+                onClick={handleCopyEmail}
+                size="small"
+              >
+                复制
+              </Button>
+            </div>
+          </div>
+
+          <Divider style={{ margin: '8px 0' }} />
+
+          <div>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              欢迎加入QQ交流群与其他用户交流，或通过邮箱向开发者反馈问题和建议。
+            </Text>
+          </div>
+        </Space>
+      </Modal>
     </div>
   );
 }

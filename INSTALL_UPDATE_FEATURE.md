@@ -129,7 +129,7 @@ npm run build
 3. 在 GitHub 上创建新的 Release
 4. 上传以下文件：
    - `T-Note Setup x.x.x.exe` - 安装包
-   - `latest.yml` - 更新信息文件（自动生成在 release 目录）
+   - `.yml` - 更新信息文件（自动生成在 release 目录）
 
 ### 版本号规则
 
