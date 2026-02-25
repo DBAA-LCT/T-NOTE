@@ -182,6 +182,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('update-status', listener);
       return () => ipcRenderer.removeListener('update-status', listener);
     },
+    getDownloadPath: () => ipcRenderer.invoke('get-update-download-path'),
+    getUpdateState: () => ipcRenderer.invoke('get-update-state'),
+    selectDownloadPath: () => ipcRenderer.invoke('select-update-download-path'),
   },
   
   // 应用信息 API

@@ -3,11 +3,16 @@
   <component name="ChangeListManager">
     <list default="true" id="3418a085-a554-4e60-916c-45464b5dcd18" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/INSTALL_UPDATE_FEATURE.md" beforeDir="false" afterPath="$PROJECT_DIR$/INSTALL_UPDATE_FEATURE.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/INSTALL_UPDATE_FEATURE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/RELEASE_GUIDE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/UPDATE_SETUP.md" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/main.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/electron/preload.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/preload.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/electron/services/update-manager.ts" beforeDir="false" afterPath="$PROJECT_DIR$/electron/services/update-manager.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/components/AboutPanel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/AboutPanel.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/types/window.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/window.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/修改日志.md" beforeDir="false" afterPath="$PROJECT_DIR$/修改日志.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,7 +58,7 @@
       <recent name="D:\code\Note\build" />
     </key>
   </component>
-  <component name="RunManager" selected="npm.dev:electron">
+  <component name="RunManager" selected="npm.build">
     <configuration name="build" type="js.build_tools.npm" temporary="true" nameIsGenerated="true">
       <package-json value="$PROJECT_DIR$/package.json" />
       <command value="run" />
@@ -106,9 +111,9 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.build" />
         <item itemvalue="npm.package" />
+        <item itemvalue="npm.dev:electron" />
         <item itemvalue="npm.dev:renderer" />
         <item itemvalue="npm.dev" />
       </list>
@@ -146,7 +151,7 @@
       <workItem from="1771900820707" duration="3716000" />
       <workItem from="1771905045033" duration="2253000" />
       <workItem from="1771911488151" duration="15695000" />
-      <workItem from="1771981837799" duration="945000" />
+      <workItem from="1771981837799" duration="4085000" />
     </task>
     <servers />
   </component>

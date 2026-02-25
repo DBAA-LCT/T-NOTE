@@ -174,8 +174,19 @@ export interface ElectronAPI {
   update: {
     checkForUpdates: () => Promise<{ success: boolean; error?: string }>;
     downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
-    quitAndInstall: () => Promise<void>;
+    quitAndInstall: () => Promise<{ success: boolean; error?: string } | void>;
     onUpdateStatus: (callback: (data: { event: string; data?: any }) => void) => () => void;
+    getDownloadPath: () => Promise<string>;
+    getUpdateState: () => Promise<{
+      checking: boolean;
+      downloading: boolean;
+      downloadProgress: number;
+      downloadSpeed: number;
+      updateAvailable: boolean;
+      updateInfo: any | null;
+      updateDownloaded: boolean;
+    }>;
+    selectDownloadPath: () => Promise<{ success: boolean; path?: string | null; error?: string }>;
   };
   
   // 应用信息 API

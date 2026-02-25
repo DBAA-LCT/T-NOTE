@@ -166,11 +166,33 @@ function createWindow() {
   });
   
   ipcMain.handle('quit-and-install', () => {
-    updateManager.quitAndInstall();
+    try {
+      updateManager.quitAndInstall();
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   });
   
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+  
+  ipcMain.handle('get-update-download-path', () => {
+    return updateManager.getDownloadPath();
+  });
+  
+  ipcMain.handle('get-update-state', () => {
+    return updateManager.getCurrentUpdateState();
+  });
+  
+  ipcMain.handle('select-update-download-path', async () => {
+    try {
+      const path = await updateManager.selectDownloadPath();
+      return { success: true, path };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   });
 }
 

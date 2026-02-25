@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Button, Typography, Space, Divider, Card, Progress, message, Spin, Tag, Modal } from 'antd';
+import { Button, Typography, Space, Divider, Card, Progress, message, Spin, Tag, Modal, Tooltip } from 'antd';
 import { 
   CloudDownloadOutlined, 
   CheckCircleOutlined, 
@@ -8,7 +8,8 @@ import {
   GithubOutlined,
   CopyOutlined,
   QqOutlined,
-  MailOutlined
+  MailOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -17,10 +18,12 @@ export default function AboutPanel() {
   const [checking, setChecking] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [currentVersion, setCurrentVersion] = useState('');
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [downloadPath, setDownloadPath] = useState('');
 
   useEffect(() => {
     // 获取应用版本号
@@ -30,6 +33,30 @@ export default function AboutPanel() {
       }).catch((error: any) => {
         console.error('获取版本号失败:', error);
         setCurrentVersion('未知');
+      });
+    }
+
+    // 获取下载路径
+    if (window.electronAPI?.update?.getDownloadPath) {
+      window.electronAPI.update.getDownloadPath().then((path: string) => {
+        setDownloadPath(path);
+      }).catch((error: any) => {
+        console.error('获取下载路径失败:', error);
+      });
+    }
+
+    // 获取当前更新状态（恢复之前的状态）
+    if (window.electronAPI?.update?.getUpdateState) {
+      window.electronAPI.update.getUpdateState().then((state: any) => {
+        console.log('恢复更新状态:', state);
+        setChecking(state.checking);
+        setDownloading(state.downloading);
+        setDownloadProgress(Math.round(state.downloadProgress));
+        setDownloadSpeed(state.downloadSpeed || 0);
+        setUpdateAvailable(state.updateAvailable);
+        setUpdateInfo(state.updateInfo);
+      }).catch((error: any) => {
+        console.error('获取更新状态失败:', error);
       });
     }
   }, []);
@@ -43,36 +70,51 @@ export default function AboutPanel() {
       switch (event) {
         case 'checking-for-update':
           setChecking(true);
+          setUpdateAvailable(false);
+          setUpdateInfo(null);
+          setDownloading(false);
+          setDownloadProgress(0);
           break;
 
         case 'update-available':
           setChecking(false);
-          setUpdateAvailable(true);
           setUpdateInfo(eventData);
           setDownloading(true);
+          setDownloadProgress(0);
           // 不再显示消息提示，只在设置菜单显示红点
           break;
 
         case 'update-not-available':
           setChecking(false);
+          setUpdateAvailable(false);
+          setDownloading(false);
           message.success('当前已是最新版本');
           break;
 
         case 'download-progress':
+          setDownloading(true);
           setDownloadProgress(Math.round(eventData.percent));
+          setDownloadSpeed(eventData.bytesPerSecond || 0);
           break;
 
         case 'update-downloaded':
           setDownloading(false);
-          setUpdateAvailable(true); // 保持 updateAvailable 为 true
+          setUpdateAvailable(true);
           setUpdateInfo(eventData);
-          // 不再显示消息提示，用户可以在关于页面看到更新状态
+          setDownloadProgress(100);
+          setDownloadSpeed(0);
+          message.success('新版本下载完成，可以安装了');
           break;
 
         case 'update-error':
           setChecking(false);
           setDownloading(false);
-          message.error(`更新失败: ${eventData}`);
+          setUpdateAvailable(false);
+          setUpdateInfo(null);
+          setDownloadProgress(0);
+          setDownloadSpeed(0);
+          const errorMessage = typeof eventData === 'string' ? eventData : eventData?.message || '更新失败';
+          message.error(`更新失败: ${errorMessage}`);
           break;
       }
     });
@@ -98,9 +140,18 @@ export default function AboutPanel() {
     }
   };
 
-  const handleInstallUpdate = () => {
+  const handleInstallUpdate = async () => {
     if (!window.electronAPI?.update) return;
-    window.electronAPI.update.quitAndInstall();
+    
+    try {
+      const result = await window.electronAPI.update.quitAndInstall();
+      if (result && !result.success) {
+        message.error(result.error || '安装更新失败，请稍后重试');
+      }
+    } catch (error: any) {
+      console.error('安装更新失败:', error);
+      message.error(error.message || '安装更新失败，请稍后重试');
+    }
   };
 
   const handleCopyQQ = () => {
@@ -117,6 +168,36 @@ export default function AboutPanel() {
     }).catch(() => {
       message.error('复制失败，请手动复制');
     });
+  };
+
+  // 格式化下载速度
+  const formatSpeed = (bytesPerSecond: number): string => {
+    if (bytesPerSecond === 0) return '0 KB/s';
+    
+    const kb = bytesPerSecond / 1024;
+    if (kb < 1024) {
+      return `${kb.toFixed(1)} KB/s`;
+    }
+    
+    const mb = kb / 1024;
+    return `${mb.toFixed(2)} MB/s`;
+  };
+
+  const handleSelectDownloadPath = async () => {
+    if (!window.electronAPI?.update?.selectDownloadPath) return;
+    
+    try {
+      const result = await window.electronAPI.update.selectDownloadPath();
+      if (result.success && result.path) {
+        setDownloadPath(result.path);
+        message.success('下载路径已更新');
+      } else if (result.error) {
+        message.error(result.error);
+      }
+    } catch (error: any) {
+      console.error('选择下载路径失败:', error);
+      message.error('选择下载路径失败');
+    }
   };
 
   return (
@@ -174,6 +255,43 @@ export default function AboutPanel() {
         style={{ marginBottom: 24 }}
       >
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {/* 下载路径设置 */}
+          <div>
+            <div style={{ marginBottom: 8 }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                更新下载位置
+              </Text>
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 8
+            }}>
+              <Tooltip title={downloadPath}>
+                <div style={{ 
+                  flex: 1,
+                  padding: '8px 12px',
+                  background: '#f5f5f5',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  <FolderOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+                  <Text style={{ fontSize: 13 }}>{downloadPath || '未设置'}</Text>
+                </div>
+              </Tooltip>
+              <Button 
+                icon={<FolderOutlined />}
+                onClick={handleSelectDownloadPath}
+              >
+                选择
+              </Button>
+            </div>
+          </div>
+
+          <Divider style={{ margin: '8px 0' }} />
+
           {!updateAvailable && !downloading && (
             <div>
               <Paragraph type="secondary" style={{ marginBottom: 16 }}>
@@ -206,6 +324,14 @@ export default function AboutPanel() {
                     '100%': '#87d068',
                   }}
                 />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    下载速度: {formatSpeed(downloadSpeed)}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {downloadProgress.toFixed(1)}%
+                  </Text>
+                </div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   下载完成后会自动提示您安装
                 </Text>
