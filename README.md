@@ -11,7 +11,7 @@
 [![Electron](https://img.shields.io/badge/Electron-28-47848F.svg)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [完整手册](docs/USER_GUIDE.md) • [技术栈](#技术栈) • [开发](#开发)
+[功能特性](#功能特性) • [快速开始](#快速开始) • [使用指南](#使用指南) • [完整手册](docs/使用手册.md) • [技术栈](#技术栈) • [开发](#开发)
 
 </div>
 
@@ -128,7 +128,7 @@
 
 ## 使用指南
 
-📖 **完整使用手册**：[编辑器使用说明文档](docs/USER_GUIDE.md)
+📖 **完整使用手册**：[编辑器使用说明文档](docs/使用手册.md)
 
 本手册包含详细的功能介绍、操作步骤、使用技巧和常见问题解答。
 
