@@ -38,8 +38,8 @@ export default function SearchPanel({
   const [searchType, setSearchType] = useState<'all' | 'title' | 'tag' | 'content' | 'bookmark'>('all');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  // 获取所有标签
-  const allTags = Array.from(new Set(pages.flatMap(p => p.tags))).sort();
+  // 获取所有标签（过滤掉 undefined 和空值）
+  const allTags = Array.from(new Set(pages.flatMap(p => p.tags).filter(t => t && typeof t === 'string'))).sort();
 
   // 搜索逻辑
   const searchResults: SearchResult[] = [];
@@ -59,8 +59,8 @@ export default function SearchPanel({
       }
       
       // 搜索标签
-      if ((searchType === 'all' || searchType === 'tag') && page.tags.some(t => t.toLowerCase().includes(query))) {
-        const matchedTag = page.tags.find(t => t.toLowerCase().includes(query));
+      if ((searchType === 'all' || searchType === 'tag') && page.tags.some(t => t && t.toLowerCase().includes(query))) {
+        const matchedTag = page.tags.find(t => t && t.toLowerCase().includes(query));
         searchResults.push({
           page,
           matchType: 'tag',
@@ -71,7 +71,7 @@ export default function SearchPanel({
       
       // 搜索书签
       if ((searchType === 'all' || searchType === 'bookmark') && page.bookmarks && page.bookmarks.length > 0) {
-        const matchedBookmark = page.bookmarks.find(b => b.name.toLowerCase().includes(query));
+        const matchedBookmark = page.bookmarks.find(b => b && b.name && b.name.toLowerCase().includes(query));
         if (matchedBookmark) {
           searchResults.push({
             page,
@@ -114,7 +114,7 @@ export default function SearchPanel({
     
     // 如果是书签匹配，跳转到书签位置
     if (result.matchType === 'bookmark' && result.contentPosition !== undefined && onJumpToBookmark) {
-      const bookmark = result.page.bookmarks?.find(b => b.id === result.bookmarkId);
+      const bookmark = result.page.bookmarks?.find(b => b && b.id === result.bookmarkId);
       if (bookmark) {
         setTimeout(() => {
           onJumpToBookmark(result.page.id, bookmark.position, bookmark.length);
@@ -305,7 +305,7 @@ export default function SearchPanel({
                     </Text>
                     
                     <div style={{ marginBottom: 8 }}>
-                      {page.tags.map(tag => (
+                      {page.tags.filter(tag => tag).map(tag => (
                         <Tag key={tag} color="blue" style={{ marginBottom: 4, fontSize: 11 }}>
                           {tag}
                         </Tag>

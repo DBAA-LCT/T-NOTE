@@ -181,7 +181,7 @@ export default function TrashContentPanel({
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '16px 24px', borderBottom: '1px solid #e8e8e8', background: '#fafafa' }}>
         <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>{page.title || '未命名页面'}</div>
-        {page.tags?.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{page.tags.map(t => <Tag key={t} color="blue">{t}</Tag>)}</div>}
+        {page.tags?.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{page.tags.filter(t => t).map(t => <Tag key={t} color="blue">{t}</Tag>)}</div>}
       </div>
       <div className="readonly-content ql-editor" style={{ flex: 1, padding: '16px 24px', overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: page.content || '<p style="color:#999">暂无内容</p>' }} />
     </div>

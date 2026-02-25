@@ -35,7 +35,7 @@ export default function BookmarkPanel({
   onUpdateBookmark
 }: BookmarkPanelProps) {
   // 获取所有包含书签的页面
-  const pagesWithBookmarks = pages.filter(page => page.bookmarks && page.bookmarks.length > 0);
+  const pagesWithBookmarks = pages.filter(page => page.bookmarks && page.bookmarks.filter(b => b && b.name).length > 0);
 
   // 默认展开当前页面
   const [activeKeys, setActiveKeys] = useState<string[]>(
@@ -224,7 +224,7 @@ export default function BookmarkPanel({
               >
                 <List
                   size="small"
-                  dataSource={page.bookmarks || []}
+                  dataSource={(page.bookmarks || []).filter(b => b && b.name)}
                   renderItem={(bookmark) => (
                     <List.Item
                       style={{

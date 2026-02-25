@@ -50,7 +50,7 @@ export default function ReadOnlyEditor({ page }: ReadOnlyEditorProps) {
         
         {page.tags && page.tags.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {page.tags.map(tag => (
+            {page.tags.filter(tag => tag).map(tag => (
               <span 
                 key={tag}
                 style={{

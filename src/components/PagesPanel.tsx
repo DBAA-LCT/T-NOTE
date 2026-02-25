@@ -141,7 +141,7 @@ export default function PagesPanel({
                 
                 {page.tags.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
-                    {page.tags.map(tag => (
+                    {page.tags.filter(tag => tag).map(tag => (
                       <Tag key={tag} color="blue" style={{ marginBottom: 4 }}>
                         {tag}
                       </Tag>
@@ -149,9 +149,9 @@ export default function PagesPanel({
                   </div>
                 )}
                 
-                {page.bookmarks && page.bookmarks.length > 0 && (
+                {page.bookmarks && page.bookmarks.filter(b => b && b.name).length > 0 && (
                   <div style={{ marginBottom: 8 }}>
-                    {page.bookmarks.slice(0, 3).map(bookmark => (
+                    {page.bookmarks.filter(b => b && b.name).slice(0, 3).map(bookmark => (
                       <Tag 
                         key={bookmark.id} 
                         icon={<BookOutlined />}
@@ -161,9 +161,9 @@ export default function PagesPanel({
                         {bookmark.name}
                       </Tag>
                     ))}
-                    {page.bookmarks.length > 3 && (
+                    {page.bookmarks.filter(b => b && b.name).length > 3 && (
                       <Tag color="orange" style={{ marginBottom: 4, fontSize: 11 }}>
-                        +{page.bookmarks.length - 3}
+                        +{page.bookmarks.filter(b => b && b.name).length - 3}
                       </Tag>
                     )}
                   </div>

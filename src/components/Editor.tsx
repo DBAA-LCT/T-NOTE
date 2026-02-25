@@ -2738,7 +2738,7 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
           <Space direction="vertical" style={{ width: '100%' }} size="small">
             <div>
               <Space size={[8, 8]} wrap>
-                {page.tags.map(tag => (
+                {page.tags.filter(tag => tag).map(tag => (
                   <Tag 
                     key={tag} 
                     color="blue"

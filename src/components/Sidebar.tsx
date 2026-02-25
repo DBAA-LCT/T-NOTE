@@ -159,7 +159,7 @@ export default function Sidebar({
                 
                 {page.tags.length > 0 && (
                   <div>
-                    {page.tags.map(tag => (
+                    {page.tags.filter(tag => tag).map(tag => (
                       <Tag key={tag} color="blue" style={{ marginBottom: 4 }}>
                         {tag}
                       </Tag>
