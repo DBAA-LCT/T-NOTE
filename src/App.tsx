@@ -9,7 +9,8 @@ import PagesPanel from './components/PagesPanel';
 import SearchPanel from './components/SearchPanel';
 import TodoPanel from './components/TodoPanel';
 import BookmarkPanel from './components/BookmarkPanel';
-import TrashPanel from './components/TrashPanel';
+import TrashCategoryPanel, { TrashCategory } from './components/TrashCategoryPanel';
+import TrashContentPanel from './components/TrashContentPanel';
 import SettingsPanel, { SettingsItem } from './components/SettingsPanel';
 import RemoteAccountsPanel from './components/RemoteAccountsPanel';
 import CloudNotesPanel from './components/CloudNotesPanel';
@@ -28,6 +29,7 @@ function App() {
   const [sidebarWidth, setSidebarWidth] = useState<number>(280);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [activeSettingsItem, setActiveSettingsItem] = useState<SettingsItem | null>(null);
+  const [activeTrashCategory, setActiveTrashCategory] = useState<TrashCategory | null>(null);
   const editorRef = useRef<EditorRef>(null);
 
   // 云端预览模式：当从云端加载笔记但未保存到本地时
@@ -839,10 +841,10 @@ function App() {
       case 'trash':
         if (!note) return null;
         return (
-          <TrashPanel
+          <TrashCategoryPanel
             trash={note.trash || []}
-            onRestore={restoreFromTrash}
-            onPermanentDelete={permanentDelete}
+            activeCategory={activeTrashCategory}
+            onSelectCategory={setActiveTrashCategory}
             onClearAll={clearTrash}
           />
         );
@@ -933,6 +935,21 @@ function App() {
           </div>
         );
     }
+  };
+
+  const renderTrashMainPanel = () => {
+    if (activeTab !== 'trash' || !note) {
+      return null;
+    }
+
+    return (
+      <TrashContentPanel
+        trash={note.trash || []}
+        activeCategory={activeTrashCategory}
+        onRestore={restoreFromTrash}
+        onPermanentDelete={permanentDelete}
+      />
+    );
   };
 
   // ---- 预览模式操作 ----
@@ -1150,6 +1167,10 @@ function App() {
             <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
               {renderSettingsMainPanel()}
             </div>
+          ) : activeTab === 'trash' ? (
+            <div style={{ flex: 1, overflow: 'auto', background: '#fff' }}>
+              {renderTrashMainPanel()}
+            </div>
           ) : (
             /* 编辑器区域 */
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1343,6 +1364,8 @@ function App() {
                         onTabClose={handleLeftTabClose}
                         onSplitView={handleLeftSplitView}
                         onTabReorder={handleLeftTabReorder}
+                        headerCollapsed={activeLeftPage?.headerCollapsed}
+                        onToggleHeaderCollapsed={() => activeLeftPage && updatePage(activeLeftPage.id, { headerCollapsed: !activeLeftPage.headerCollapsed })}
                       />
                     </div>
                   )}
@@ -1363,6 +1386,8 @@ function App() {
                         onTabClose={handleRightTabClose}
                         onSplitView={handleRightSplitView}
                         onTabReorder={handleRightTabReorder}
+                        headerCollapsed={activeRightPage?.headerCollapsed}
+                        onToggleHeaderCollapsed={() => activeRightPage && updatePage(activeRightPage.id, { headerCollapsed: !activeRightPage.headerCollapsed })}
                       />
                     </div>
                   )}

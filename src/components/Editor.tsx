@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Layout, Input, Tag, Space, Button, Empty, Popover, List, Popconfirm, message, Modal, Dropdown, Select, DatePicker, Checkbox, Typography, InputNumber } from 'antd';
-import { PlusOutlined, BookOutlined, DeleteOutlined, PushpinOutlined, PushpinFilled, EditOutlined, CheckSquareOutlined, FlagOutlined, TableOutlined, SearchOutlined, CloseOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { PlusOutlined, BookOutlined, DeleteOutlined, PushpinOutlined, PushpinFilled, EditOutlined, CheckSquareOutlined, FlagOutlined, TableOutlined, SearchOutlined, CloseOutlined, UpOutlined, DownOutlined, ExpandOutlined, CompressOutlined, CopyOutlined, ScissorOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Page, Bookmark, TodoItem } from '../types';
 import PageCommitButton from './PageCommitButton';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useContextMenu } from '../hooks/useContextMenu';
 import dayjs from 'dayjs';
 
 const { Content } = Layout;
@@ -211,19 +213,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const [contextMenuBookmark, setContextMenuBookmark] = useState<Bookmark | null>(null);
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
   
-  // 大内容处理
-  const [isLargeContent, setIsLargeContent] = useState(false);
-  const [isVeryLargeContent, setIsVeryLargeContent] = useState(false);
-  const [forceEditMode, setForceEditMode] = useState(false);
-  const [useTextEditor, setUseTextEditor] = useState(false);
-  const [textContent, setTextContent] = useState('');
-  const [editAsHtml, setEditAsHtml] = useState(false);
-  const [isLoadingLargeContent, setIsLoadingLargeContent] = useState(false); // 正在加载大内容
-  const [loadingProgress, setLoadingProgress] = useState(0); // 加载进度
-  const LARGE_CONTENT_THRESHOLD = 50000; // 50KB
-  const VERY_LARGE_CONTENT_THRESHOLD = 200000; // 200KB
+  // 长代码块侧边栏状态
+  const [longCodeSidebarOpen, setLongCodeSidebarOpen] = useState(false);
   
   // 图片预览相关状态
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
@@ -250,6 +242,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const quillRef = useRef<ReactQuill>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
+  // 编辑器右键菜单
+  const editorContextMenu = useContextMenu();
+
   // 搜索替换相关状态
   const [showSearch, setShowSearch] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
@@ -273,20 +268,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
   const [longCodeMap, setLongCodeMap] = useState<Map<string, { content: string; language: string; title: string }>>(new Map());
   const [savedCursorPosition, setSavedCursorPosition] = useState<number | null>(null); // 保存光标位置
 
-  // 检测内容大小
+  // 检测内容大小 - 加载页面的长代码块
   useEffect(() => {
     if (!page) return;
-    
-    const contentSize = page.content?.length || 0;
-    const isLarge = contentSize > LARGE_CONTENT_THRESHOLD;
-    const isVeryLarge = contentSize > VERY_LARGE_CONTENT_THRESHOLD;
-    
-    setIsLargeContent(isLarge);
-    setIsVeryLargeContent(isVeryLarge);
-    setForceEditMode(false);
-    setUseTextEditor(false);
-    setIsLoadingLargeContent(false);
-    setLoadingProgress(0);
     
     // 加载页面的长代码块
     if (page.longCodeBlocks) {
@@ -303,85 +287,9 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     } else {
       setLongCodeMap(new Map());
     }
-    
-    if (isLarge) {
-      const sizeKB = Math.round(contentSize / 1024);
-      message.info(`正在加载大型内容（${sizeKB}KB），请稍候...`, 2);
-    }
   }, [page?.id, page?.content?.length]);
 
-  // 大内容延迟渲染 - 模拟 Word 的加载行为
-  useEffect(() => {
-    if (!page || !isVeryLargeContent || useTextEditor) return;
-    
-    setIsLoadingLargeContent(true);
-    setLoadingProgress(0);
-    
-    // 使用 setTimeout 分批处理，避免阻塞主线程
-    const timer = setTimeout(() => {
-      setLoadingProgress(30);
-      
-      setTimeout(() => {
-        setLoadingProgress(60);
-        
-        setTimeout(() => {
-          setLoadingProgress(90);
-          
-          setTimeout(() => {
-            setLoadingProgress(100);
-            setIsLoadingLargeContent(false);
-          }, 300);
-        }, 300);
-      }, 300);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [page?.id, isVeryLargeContent, useTextEditor]);
 
-  // 将 HTML 转换为纯文本用于文本编辑器
-  const htmlToText = (html: string): string => {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
-  };
-
-  // 将纯文本转换回 HTML（保留换行）
-  const textToHtml = (text: string): string => {
-    return text
-      .split('\n')
-      .map(line => `<p>${line || '<br>'}</p>`)
-      .join('');
-  };
-
-  // 进入文本编辑模式
-  const enterTextEditMode = (asHtml: boolean = false) => {
-    if (!page) return;
-    if (asHtml) {
-      // 编辑 HTML 源码
-      setTextContent(page.content);
-      setEditAsHtml(true);
-    } else {
-      // 编辑纯文本
-      const text = htmlToText(page.content);
-      setTextContent(text);
-      setEditAsHtml(false);
-    }
-    setUseTextEditor(true);
-  };
-
-  // 保存文本编辑
-  const saveTextEdit = () => {
-    if (editAsHtml) {
-      // 直接保存 HTML
-      onUpdatePage({ content: textContent });
-    } else {
-      // 转换纯文本为 HTML
-      const html = textToHtml(textContent);
-      onUpdatePage({ content: html });
-    }
-    setUseTextEditor(false);
-    message.success('内容已保存');
-  };
 
   // 暴露跳转方法给父组件
   useImperativeHandle(ref, () => ({
@@ -1406,6 +1314,273 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
     onUpdatePage({ tags: page.tags.filter(t => t !== tag) });
   };
 
+  // 编辑器右键菜单操作
+  const handleCopy = useCallback(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    const selection = quill.getSelection();
+    if (!selection || selection.length === 0) {
+      message.info('请先选中要复制的内容');
+      return;
+    }
+    
+    const html = quill.root.innerHTML;
+    const text = quill.getText(selection.index, selection.length);
+    
+    // 获取选中的HTML
+    const tempDiv = document.createElement('div');
+    const contents = quill.getContents(selection.index, selection.length);
+    const tempQuill = new Quill(tempDiv, { modules: {} });
+    tempQuill.setContents(contents);
+    const selectedHtml = tempDiv.querySelector('.ql-editor')?.innerHTML || text;
+    
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([selectedHtml], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' })
+      })
+    ]).then(() => {
+      message.success('已复制');
+    }).catch(() => {
+      // 降级到纯文本复制
+      navigator.clipboard.writeText(text).then(() => {
+        message.success('已复制');
+      });
+    });
+  }, []);
+
+  const handleCut = useCallback(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    const selection = quill.getSelection();
+    if (!selection || selection.length === 0) {
+      message.info('请先选中要剪切的内容');
+      return;
+    }
+    
+    const text = quill.getText(selection.index, selection.length);
+    
+    // 获取选中的HTML
+    const tempDiv = document.createElement('div');
+    const contents = quill.getContents(selection.index, selection.length);
+    const tempQuill = new Quill(tempDiv, { modules: {} });
+    tempQuill.setContents(contents);
+    const selectedHtml = tempDiv.querySelector('.ql-editor')?.innerHTML || text;
+    
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([selectedHtml], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' })
+      })
+    ]).then(() => {
+      quill.deleteText(selection.index, selection.length);
+      message.success('已剪切');
+    }).catch(() => {
+      navigator.clipboard.writeText(text).then(() => {
+        quill.deleteText(selection.index, selection.length);
+        message.success('已剪切');
+      });
+    });
+  }, []);
+
+  const handlePaste = useCallback(async () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        // 优先尝试HTML格式
+        if (item.types.includes('text/html')) {
+          const blob = await item.getType('text/html');
+          const html = await blob.text();
+          const selection = quill.getSelection() || { index: quill.getLength() - 1 };
+          quill.clipboard.dangerouslyPasteHTML(selection.index, html);
+          message.success('已粘贴');
+          return;
+        }
+        // 降级到纯文本
+        if (item.types.includes('text/plain')) {
+          const blob = await item.getType('text/plain');
+          const text = await blob.text();
+          const selection = quill.getSelection() || { index: quill.getLength() - 1 };
+          quill.insertText(selection.index, text);
+          message.success('已粘贴');
+          return;
+        }
+      }
+    } catch {
+      // 降级方案
+      const text = await navigator.clipboard.readText();
+      const selection = quill.getSelection() || { index: quill.getLength() - 1 };
+      quill.insertText(selection.index, text);
+      message.success('已粘贴');
+    }
+  }, []);
+
+  const handlePastePlainText = useCallback(async () => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    try {
+      const text = await navigator.clipboard.readText();
+      const selection = quill.getSelection() || { index: quill.getLength() - 1 };
+      quill.insertText(selection.index, text);
+      message.success('已粘贴纯文本');
+    } catch (err) {
+      message.error('粘贴失败');
+    }
+  }, []);
+
+  const handleRemoveFormat = useCallback(() => {
+    const quill = quillRef.current?.getEditor();
+    if (!quill) return;
+    
+    const selection = quill.getSelection();
+    if (!selection || selection.length === 0) {
+      message.info('请先选中要清除格式的内容');
+      return;
+    }
+    
+    quill.removeFormat(selection.index, selection.length);
+    message.success('已清除格式');
+  }, []);
+
+  // 右键菜单相关状态
+  const [contextTarget, setContextTarget] = useState<{
+    type: 'editor' | 'bookmark' | 'todo';
+    bookmark?: Bookmark;
+    todo?: TodoItem;
+  } | null>(null);
+
+  const editorMenuItems: ContextMenuItem[] = [
+    {
+      key: 'cut',
+      label: '剪切',
+      icon: <ScissorOutlined />,
+      onClick: handleCut
+    },
+    {
+      key: 'copy',
+      label: '复制',
+      icon: <CopyOutlined />,
+      onClick: handleCopy
+    },
+    {
+      key: 'paste',
+      label: '粘贴',
+      icon: <EditOutlined />,
+      onClick: handlePaste
+    },
+    {
+      key: 'pastePlain',
+      label: '粘贴为纯文本',
+      icon: <FileTextOutlined />,
+      onClick: handlePastePlainText
+    },
+    { key: 'divider1', label: '', divider: true },
+    {
+      key: 'removeFormat',
+      label: '清除格式',
+      icon: <DeleteOutlined />,
+      onClick: handleRemoveFormat
+    }
+  ];
+
+  // 书签右键菜单
+  const bookmarkMenuItems: ContextMenuItem[] = [
+    {
+      key: 'edit',
+      label: '编辑书签',
+      icon: <EditOutlined />,
+      onClick: () => {
+        if (contextTarget?.bookmark) {
+          setEditingBookmark(contextTarget.bookmark);
+          setBookmarkName(contextTarget.bookmark.name);
+          setBookmarkNote(contextTarget.bookmark.note || '');
+        }
+      }
+    },
+    {
+      key: 'jump',
+      label: '跳转到书签',
+      icon: <BookOutlined />,
+      onClick: () => {
+        if (contextTarget?.bookmark) {
+          jumpToBookmark(contextTarget.bookmark.id);
+        }
+      }
+    },
+    { key: 'divider', label: '', divider: true },
+    {
+      key: 'delete',
+      label: '删除书签',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => {
+        if (contextTarget?.bookmark) {
+          handleDeleteBookmark(contextTarget.bookmark.id);
+        }
+      }
+    }
+  ];
+
+  // 待办右键菜单
+  const todoMenuItems: ContextMenuItem[] = [
+    {
+      key: 'toggle',
+      label: contextTarget?.todo?.completed ? '标记为未完成' : '标记为已完成',
+      icon: <CheckSquareOutlined />,
+      onClick: () => {
+        if (contextTarget?.todo && onUpdateTodo) {
+          onUpdateTodo(contextTarget.todo.id, { completed: !contextTarget.todo.completed });
+        }
+      }
+    },
+    {
+      key: 'edit',
+      label: '编辑待办',
+      icon: <EditOutlined />,
+      onClick: () => {
+        if (contextTarget?.todo) {
+          setEditingTodo(contextTarget.todo);
+          setTodoTitle(contextTarget.todo.title);
+          setTodoDescription(contextTarget.todo.description || '');
+          setTodoPriority(contextTarget.todo.priority);
+          setTodoCategory(contextTarget.todo.category || '');
+          setTodoDueDate(contextTarget.todo.dueDate);
+        }
+      }
+    },
+    { key: 'divider', label: '', divider: true },
+    {
+      key: 'delete',
+      label: '删除待办',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => {
+        if (contextTarget?.todo && onDeleteTodo) {
+          onDeleteTodo(contextTarget.todo.id);
+        }
+      }
+    }
+  ];
+
+  // 获取当前应该显示的菜单项
+  const getContextMenuItems = (): ContextMenuItem[] => {
+    if (!contextTarget) return editorMenuItems;
+    switch (contextTarget.type) {
+      case 'bookmark':
+        return bookmarkMenuItems;
+      case 'todo':
+        return todoMenuItems;
+      default:
+        return editorMenuItems;
+    }
+  };
+
   const addBookmark = () => {
     const quill = quillRef.current?.getEditor();
     if (!quill) {
@@ -2248,7 +2423,23 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
 
       {/* 长代码块编辑对话框 */}
       <Modal
-        title={editingLongCodeId ? "编辑长代码块" : "插入长代码块"}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 32 }}>
+            <span>{editingLongCodeId ? "编辑长代码块" : "插入长代码块"}</span>
+            <Button
+              type="text"
+              icon={<ExpandOutlined />}
+              onClick={() => {
+                setLongCodeModalOpen(false);
+                setLongCodeSidebarOpen(true);
+              }}
+              title="在侧边栏打开"
+              style={{ marginLeft: 8 }}
+            >
+              侧边栏
+            </Button>
+          </div>
+        }
         open={longCodeModalOpen}
         onOk={saveLongCode}
         onCancel={() => {
@@ -2497,119 +2688,84 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
         height: '100vh',
         background: '#fff'
       }}>
-      <div style={{ 
-        padding: headerCollapsed ? '8px 24px' : '16px 24px',
-        borderBottom: '1px solid #e8e8e8',
-        background: '#fafafa',
-        transition: 'all 0.3s',
-        position: 'relative'
-      }}>
-        {/* 右上角按钮组 */}
-        <div style={{
-          position: 'absolute',
-          right: 8,
-          top: 8,
-          zIndex: 10,
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center'
+      {/* 根据page.headerCollapsed决定是否显示标题栏 */}
+      {!page?.headerCollapsed && (
+        <div style={{ 
+          padding: '16px 24px',
+          borderBottom: '1px solid #e8e8e8',
+          background: '#fafafa',
+          transition: 'all 0.3s',
+          position: 'relative'
         }}>
-          {/* 页面提交按钮 */}
+          {/* 右上角页面提交按钮 */}
           {noteId && syncConfig?.enabled && page && (
-            <PageCommitButton
-              noteId={noteId}
-              pageId={page.id}
-              syncStatus={page.syncStatus}
-              autoCommit={syncConfig.autoCommit}
-              onCommitSuccess={() => {
-                // 提交成功后可以刷新状态
-              }}
-            />
+            <div style={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              zIndex: 10
+            }}>
+              <PageCommitButton
+                noteId={noteId}
+                pageId={page.id}
+                syncStatus={page.syncStatus}
+                autoCommit={syncConfig.autoCommit}
+                onCommitSuccess={() => {}}
+              />
+            </div>
           )}
           
-          {/* 折叠按钮 */}
-          <Button
-            type="text"
-            size="small"
-            onClick={() => setHeaderCollapsed(!headerCollapsed)}
-            style={{
-              fontSize: 12,
-              color: '#999'
+          <Input
+            value={page.title}
+            onChange={(e) => onUpdatePage({ title: e.target.value })}
+            placeholder="输入页面标题..."
+            bordered={false}
+            style={{ 
+              fontSize: 20,
+              fontWeight: 600,
+              marginBottom: 12,
+              padding: 0,
+              paddingRight: 80
             }}
-            title={headerCollapsed ? '展开标题栏' : '折叠标题栏'}
-          >
-            {headerCollapsed ? '展开 ▼' : '折叠 ▲'}
-          </Button>
-        </div>
-        
-        {headerCollapsed ? (
-          // 折叠状态：只显示标题
-          <div style={{ 
-            fontSize: 16,
-            fontWeight: 600,
-            color: '#333',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            paddingRight: 80
-          }}>
-            {page.title || '未命名页面'}
-          </div>
-        ) : (
-          // 展开状态：显示完整标题栏
-          <>
-            <Input
-              value={page.title}
-              onChange={(e) => onUpdatePage({ title: e.target.value })}
-              placeholder="输入页面标题..."
-              bordered={false}
-              style={{ 
-                fontSize: 20,
-                fontWeight: 600,
-                marginBottom: 12,
-                padding: 0,
-                paddingRight: 80
-              }}
-            />
+          />
+          
+          <Space direction="vertical" style={{ width: '100%' }} size="small">
+            <div>
+              <Space size={[8, 8]} wrap>
+                {page.tags.map(tag => (
+                  <Tag 
+                    key={tag} 
+                    color="blue"
+                    closable
+                    onClose={() => removeTag(tag)}
+                    style={{ fontSize: 13, padding: '4px 8px' }}
+                  >
+                    {tag}
+                  </Tag>
+                ))}
+              </Space>
+            </div>
             
-            <Space direction="vertical" style={{ width: '100%' }} size="small">
-              <div>
-                <Space size={[8, 8]} wrap>
-                  {page.tags.map(tag => (
-                    <Tag 
-                      key={tag} 
-                      color="blue"
-                      closable
-                      onClose={() => removeTag(tag)}
-                      style={{ fontSize: 13, padding: '4px 8px' }}
-                    >
-                      {tag}
-                    </Tag>
-                  ))}
-                </Space>
-              </div>
-              
-              <Space.Compact style={{ maxWidth: 280 }}>
-                <Input
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onPressEnter={addTag}
-                  placeholder="添加标签..."
-                  size="small"
-                />
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />} 
-                  onClick={addTag}
-                  size="small"
-                >
-                  添加
-                </Button>
-              </Space.Compact>
-            </Space>
-          </>
-        )}
-      </div>
+            <Space.Compact style={{ maxWidth: 280 }}>
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onPressEnter={addTag}
+                placeholder="添加标签..."
+                size="small"
+              />
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={addTag}
+                size="small"
+              >
+                添加
+              </Button>
+            </Space.Compact>
+          </Space>
+        </div>
+      )}
 
       <div 
         ref={editorContainerRef}
@@ -2834,168 +2990,235 @@ const Editor = forwardRef<EditorRef, EditorProps>(({ page, onUpdatePage, todos =
           </div>
         )}
         
-        {/* 加载大内容动画 */}
-        {isLoadingLargeContent ? (
-          <div style={{
-            height: 'calc(100% - 50px)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#fafafa',
-            gap: 20
-          }}>
-            <div style={{ fontSize: 48 }}>�</div>
-            <div style={{ fontSize: 16, color: '#666' }}>
-              正在加载大型文档...
-            </div>
-            <div style={{ width: 300, height: 8, background: '#e8e8e8', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{
-                width: `${loadingProgress}%`,
-                height: '100%',
-                background: '#1677ff',
-                transition: 'width 0.3s ease'
-              }} />
-            </div>
-            <div style={{ fontSize: 13, color: '#999' }}>
-              {Math.round((page.content?.length || 0) / 1024)}KB
-            </div>
-          </div>
-        ) : useTextEditor ? (
-          /* 文本编辑模式 */
-          <>
-            <div style={{
-              padding: '8px 16px',
-              background: '#e6f4ff',
-              border: '1px solid #91caff',
-              borderRadius: 6,
-              marginBottom: 12,
+        {/* 编辑器区域 - 支持分屏 */}
+        <div style={{ 
+          display: 'flex', 
+          flex: 1, 
+          minHeight: 0,
+          gap: longCodeSidebarOpen ? 1 : 0
+        }}>
+          {/* 左侧：富文本编辑器 */}
+          <div 
+            style={{ 
+              flex: longCodeSidebarOpen ? 1 : 1, 
+              minWidth: 0,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontSize: 13, color: '#0958d9' }}>
-                  {editAsHtml ? '📄 HTML 源码编辑模式' : '📝 纯文本编辑模式'}
-                </span>
-                <span style={{ fontSize: 12, color: '#666' }}>
-                  {Math.round(textContent.length / 1024)}KB / {textContent.split('\n').length} 行
-                </span>
-              </div>
-              <Space>
-                <Button 
-                  type="primary"
-                  size="small"
-                  onClick={saveTextEdit}
-                >
-                  保存
-                </Button>
-                <Button 
-                  size="small"
-                  onClick={() => {
-                    Modal.confirm({
-                      title: '取消编辑',
-                      content: '确定要取消编辑吗？未保存的更改将丢失。',
-                      okText: '确定',
-                      cancelText: '继续编辑',
-                      onOk: () => setUseTextEditor(false)
-                    });
-                  }}
-                >
-                  取消
-                </Button>
-              </Space>
-            </div>
-            <TextArea
-              value={textContent}
-              onChange={(e) => setTextContent(e.target.value)}
-              style={{
-                height: 'calc(100% - 70px)',
-                fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                fontSize: 13,
-                lineHeight: 1.6,
-                resize: 'none',
-                padding: '12px'
-              }}
-              placeholder="在此编辑内容..."
-              autoSize={false}
-              spellCheck={false}
-            />
-          </>
-        ) : isLargeContent ? (
-          /* 大内容只读预览 */
-          <>
-            <div style={{
-              padding: '8px 16px',
-              background: '#fff7e6',
-              border: '1px solid #ffd591',
-              borderRadius: 6,
-              marginBottom: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ fontSize: 13, color: '#d46b08' }}>
-                📄 大型文档（{Math.round((page.content?.length || 0) / 1024)}KB）- 只读模式
-              </div>
-              <Space>
-                <Button 
-                  type="primary"
-                  size="small"
-                  onClick={() => enterTextEditMode(true)}
-                >
-                  编辑
-                </Button>
-              </Space>
-            </div>
-            
-            <div style={{
-              height: 'calc(100% - 70px)',
-              overflow: 'auto',
-              padding: '20px',
-              background: '#fff',
-              border: '1px solid #e8e8e8',
-              borderRadius: 6
-            }}>
-              <div 
-                className="ql-editor"
-                dangerouslySetInnerHTML={{ __html: page.content }}
-                style={{
-                  fontSize: 14,
-                  lineHeight: 1.8,
-                  color: '#333',
-                  minHeight: '100%'
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          /* 正常富文本编辑模式 */
-          <ReactQuill
-            ref={quillRef}
-            theme="snow"
-            value={page.content}
-            onChange={(content) => onUpdatePage({ content })}
-            modules={{
-              toolbar: {
-                container: '#toolbar-container'
-              },
-              clipboard: {
-                matchVisual: false
+              flexDirection: 'column'
+            }}
+            onContextMenu={(e) => {
+              // 检查是否点击在编辑器内容区域
+              const target = e.target as HTMLElement;
+              if (target.closest('.ql-editor') || target.classList.contains('ql-editor')) {
+                e.preventDefault();
+                
+                // 检查是否点击在书签上
+                const bookmarkEl = target.closest('.ql-bookmark') as HTMLElement;
+                if (bookmarkEl) {
+                  const bookmarkId = bookmarkEl.getAttribute('data-bookmark-id');
+                  const bookmark = page?.bookmarks?.find(b => b.id === bookmarkId);
+                  if (bookmark) {
+                    setContextTarget({ type: 'bookmark', bookmark });
+                    editorContextMenu.show(e);
+                    return;
+                  }
+                }
+                
+                // 检查是否点击在待办上
+                const todoEl = target.closest('.ql-todo') as HTMLElement;
+                if (todoEl) {
+                  const todoId = todoEl.getAttribute('data-todo-id');
+                  const todo = todos?.find(t => t.id === todoId);
+                  if (todo) {
+                    setContextTarget({ type: 'todo', todo });
+                    editorContextMenu.show(e);
+                    return;
+                  }
+                }
+                
+                // 普通编辑器区域
+                setContextTarget({ type: 'editor' });
+                editorContextMenu.show(e);
               }
             }}
-            style={{ 
-              height: 'calc(100% - 50px)',
+          >
+            <ReactQuill
+              ref={quillRef}
+              theme="snow"
+              value={page.content}
+              onChange={(content) => onUpdatePage({ content })}
+              modules={{
+                toolbar: {
+                  container: '#toolbar-container'
+                },
+                clipboard: {
+                  matchVisual: false
+                }
+              }}
+              style={{ 
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                border: 'none'
+              }}
+              bounds="#toolbar-container"
+              preserveWhitespace={true}
+            />
+          </div>
+          
+          {/* 右侧：长代码块分屏编辑器 */}
+          {longCodeSidebarOpen && (
+            <div style={{
+              flex: 1,
+              minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
-              border: 'none'
-            }}
-            bounds="#toolbar-container"
-            preserveWhitespace={true}
-          />
-        )}
+              borderLeft: '1px solid #e8e8e8',
+              background: '#fff'
+            }}>
+              {/* 分屏标题栏 */}
+              <div style={{
+                padding: '8px 12px',
+                borderBottom: '1px solid #e8e8e8',
+                background: '#fafafa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 500 }}>
+                    {editingLongCodeId ? "编辑长代码块" : "插入长代码块"}
+                  </span>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CompressOutlined />}
+                    onClick={() => {
+                      setLongCodeSidebarOpen(false);
+                      setLongCodeModalOpen(true);
+                    }}
+                    title="在弹窗打开"
+                  />
+                </div>
+                <Space size="small">
+                  <Button size="small" onClick={() => {
+                    setLongCodeSidebarOpen(false);
+                    setEditingLongCodeId(null);
+                  }}>取消</Button>
+                  <Button type="primary" size="small" onClick={() => {
+                    saveLongCode();
+                    setLongCodeSidebarOpen(false);
+                  }}>保存</Button>
+                </Space>
+              </div>
+              
+              {/* 分屏内容 */}
+              <div style={{ flex: 1, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>标题</Text>
+                    <Input
+                      size="small"
+                      value={longCodeTitle}
+                      onChange={(e) => setLongCodeTitle(e.target.value)}
+                      placeholder="长代码块"
+                      maxLength={50}
+                    />
+                  </div>
+                  <div>
+                    <Text style={{ fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }}>语言</Text>
+                    <Select
+                      size="small"
+                      value={longCodeLanguage}
+                      onChange={setLongCodeLanguage}
+                      style={{ width: 120 }}
+                      options={[
+                        { label: 'JavaScript', value: 'javascript' },
+                        { label: 'TypeScript', value: 'typescript' },
+                        { label: 'Python', value: 'python' },
+                        { label: 'Java', value: 'java' },
+                        { label: 'C++', value: 'cpp' },
+                        { label: 'C#', value: 'csharp' },
+                        { label: 'Go', value: 'go' },
+                        { label: 'Rust', value: 'rust' },
+                        { label: 'HTML', value: 'html' },
+                        { label: 'CSS', value: 'css' },
+                        { label: 'SQL', value: 'sql' },
+                        { label: 'Shell', value: 'shell' },
+                        { label: 'JSON', value: 'json' },
+                        { label: '纯文本', value: 'text' }
+                      ]}
+                    />
+                  </div>
+                </div>
+                
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 12, color: '#666' }}>代码内容</Text>
+                    <Text style={{ fontSize: 12, color: '#999' }}>
+                      {longCodeContent.split('\n').length} 行
+                    </Text>
+                  </div>
+                  
+                  <div style={{
+                    display: 'flex',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    flex: 1,
+                    minHeight: 0
+                  }}>
+                    <div style={{
+                      padding: '4px 6px',
+                      background: '#f5f5f5',
+                      borderRight: '1px solid #d9d9d9',
+                      fontFamily: 'Consolas, Monaco, monospace',
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      color: '#8c8c8c',
+                      textAlign: 'right',
+                      userSelect: 'none',
+                      minWidth: '32px',
+                      overflowY: 'auto'
+                    }}>
+                      {longCodeContent.split('\n').map((_, i) => (
+                        <div key={i}>{i + 1}</div>
+                      ))}
+                    </div>
+                    <TextArea
+                      value={longCodeContent}
+                      onChange={(e) => setLongCodeContent(e.target.value)}
+                      placeholder="粘贴或输入代码..."
+                      bordered={false}
+                      style={{
+                        flex: 1,
+                        fontFamily: 'Consolas, Monaco, monospace',
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        resize: 'none',
+                        padding: '4px 6px'
+                      }}
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </Content>
+
+    {/* 编辑器右键菜单 */}
+    <ContextMenu
+      visible={editorContextMenu.visible}
+      x={editorContextMenu.x}
+      y={editorContextMenu.y}
+      items={getContextMenuItems()}
+      onClose={() => {
+        editorContextMenu.hide();
+        setContextTarget(null);
+      }}
+    />
     </>
   );
 });

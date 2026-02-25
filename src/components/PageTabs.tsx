@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { Dropdown, Menu } from 'antd';
-import type { MenuProps } from 'antd';
+import { useState } from 'react';
+import { SplitCellsOutlined, CloseOutlined } from '@ant-design/icons';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
 import './PageTabs.css';
 
 interface PageTab {
@@ -15,9 +15,11 @@ interface PageTabsProps {
   onTabClose?: (tabId: string) => void;
   onSplitView?: (tabId: string) => void;
   onTabReorder?: (tabs: PageTab[]) => void;
+  headerCollapsed?: boolean;
+  onToggleHeaderCollapsed?: () => void;
 }
 
-export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, onSplitView, onTabReorder }: PageTabsProps) {
+export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, onSplitView, onTabReorder, headerCollapsed, onToggleHeaderCollapsed }: PageTabsProps) {
   const [contextMenuTab, setContextMenuTab] = useState<string | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
@@ -34,28 +36,25 @@ export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, on
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
   };
 
-  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (!contextMenuTab) return;
-    
-    if (key === 'split') {
-      onSplitView?.(contextMenuTab);
-    } else if (key === 'close') {
-      onTabClose?.(contextMenuTab);
-    }
-    
+  const closeContextMenu = () => {
     setContextMenuTab(null);
     setContextMenuPosition(null);
   };
 
-  const menuItems: MenuProps['items'] = [
+  const menuItems: ContextMenuItem[] = [
     {
       key: 'split',
       label: '分屏显示',
+      icon: <SplitCellsOutlined />,
+      onClick: () => contextMenuTab && onSplitView?.(contextMenuTab)
     },
+    { key: 'divider', label: '', divider: true },
     {
       key: 'close',
       label: '关闭',
-    },
+      icon: <CloseOutlined />,
+      onClick: () => contextMenuTab && onTabClose?.(contextMenuTab)
+    }
   ];
 
   // 拖拽开始
@@ -107,18 +106,6 @@ export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, on
     setIsDraggingToSplit(false);
   };
 
-  useEffect(() => {
-    const handleClick = () => {
-      setContextMenuTab(null);
-      setContextMenuPosition(null);
-    };
-    
-    if (contextMenuPosition) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
-  }, [contextMenuPosition]);
-
   if (tabs.length === 0) return null;
 
   return (
@@ -157,6 +144,17 @@ export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, on
           </div>
         )}
         
+        {/* 折叠标题栏按钮 */}
+        {onToggleHeaderCollapsed && (
+          <div
+            className="page-tab-collapse-btn"
+            onClick={onToggleHeaderCollapsed}
+            title={headerCollapsed ? '展开标题栏' : '折叠标题栏'}
+          >
+            {headerCollapsed ? '▼' : '▲'}
+          </div>
+        )}
+        
         {/* 分屏拖放区域 */}
         {draggedTab && (
           <div
@@ -188,25 +186,13 @@ export default function PageTabs({ tabs, activeTabId, onTabClick, onTabClose, on
         )}
       </div>
 
-      {contextMenuPosition && (
-        <div
-          style={{
-            position: 'fixed',
-            left: contextMenuPosition.x,
-            top: contextMenuPosition.y,
-            zIndex: 1000,
-          }}
-        >
-          <Menu
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              borderRadius: '4px',
-            }}
-          />
-        </div>
-      )}
+      <ContextMenu
+        visible={!!contextMenuPosition}
+        x={contextMenuPosition?.x || 0}
+        y={contextMenuPosition?.y || 0}
+        items={menuItems}
+        onClose={closeContextMenu}
+      />
     </>
   );
 }

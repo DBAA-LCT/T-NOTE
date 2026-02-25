@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, Button, Input, Select, Checkbox, Modal, Space, Tag, Empty, Popconfirm, DatePicker, Collapse, message } from 'antd';
+import { Typography, Button, Input, Select, Checkbox, Modal, Space, Tag, Empty, DatePicker, Collapse, message } from 'antd';
 import { 
   CheckSquareOutlined, 
   PlusOutlined, 
@@ -10,9 +10,12 @@ import {
   AppstoreOutlined,
   UnorderedListOutlined,
   FileTextOutlined,
-  InboxOutlined
+  InboxOutlined,
+  CheckOutlined
 } from '@ant-design/icons';
 import { TodoItem, Page } from '../types';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useContextMenu } from '../hooks/useContextMenu';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -41,6 +44,40 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
   const [sortBy, setSortBy] = useState<'priority' | 'dueDate'>('priority');
   const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('flat');
   const [groupBy, setGroupBy] = useState<'page' | 'category' | 'priority'>('page');
+  
+  // 右键菜单
+  const contextMenu = useContextMenu();
+  const [contextTodo, setContextTodo] = useState<TodoItem | null>(null);
+
+  const handleTodoContextMenu = (e: React.MouseEvent, todo: TodoItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextTodo(todo);
+    contextMenu.show(e);
+  };
+
+  const todoMenuItems: ContextMenuItem[] = [
+    {
+      key: 'toggle',
+      label: contextTodo?.completed ? '标记为未完成' : '标记为已完成',
+      icon: <CheckOutlined />,
+      onClick: () => contextTodo && onUpdateTodo(contextTodo.id, { completed: !contextTodo.completed })
+    },
+    {
+      key: 'edit',
+      label: '编辑',
+      icon: <EditOutlined />,
+      onClick: () => contextTodo && openEditModal(contextTodo)
+    },
+    { key: 'divider', label: '', divider: true },
+    {
+      key: 'delete',
+      label: '删除',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => contextTodo && onDeleteTodo(contextTodo.id)
+    }
+  ];
 
   const openAddModal = () => {
     setEditingTodo(null);
@@ -242,6 +279,7 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
           onJumpToPage(todo.linkedPageId, todo.linkedPosition);
         }
       }}
+      onContextMenu={(e) => handleTodoContextMenu(e, todo)}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <Checkbox
@@ -306,19 +344,6 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
             icon={<EditOutlined />}
             onClick={() => openEditModal(todo)}
           />
-          <Popconfirm
-            title="确定删除这个待办事项吗？"
-            onConfirm={() => onDeleteTodo(todo.id)}
-            okText="删除"
-            cancelText="取消"
-          >
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            />
-          </Popconfirm>
         </div>
       </div>
     </div>
@@ -586,6 +611,14 @@ export default function TodoPanel({ todos, pages, onAddTodo, onUpdateTodo, onDel
           </div>
         </div>
       </Modal>
+
+      <ContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        items={todoMenuItems}
+        onClose={contextMenu.hide}
+      />
     </div>
   );
 }

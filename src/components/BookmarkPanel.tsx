@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Typography, List, Empty, Button, Popconfirm, Collapse, Dropdown, Modal, Input, message } from 'antd';
+import { Typography, List, Empty, Button, Collapse, Modal, Input, message } from 'antd';
 import { BookOutlined, DeleteOutlined, RightOutlined, EditOutlined } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
 import { Page, Bookmark } from '../types';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useContextMenu } from '../hooks/useContextMenu';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -48,15 +49,21 @@ export default function BookmarkPanel({
   const [bookmarkName, setBookmarkName] = useState('');
   const [bookmarkNote, setBookmarkNote] = useState('');
 
-  // 右键菜单状态
-  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+  // 右键菜单
+  const contextMenu = useContextMenu();
   const [contextMenuBookmark, setContextMenuBookmark] = useState<{ pageId: string; bookmark: Bookmark } | null>(null);
+
+  const handleBookmarkContextMenu = (e: React.MouseEvent, pageId: string, bookmark: Bookmark) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuBookmark({ pageId, bookmark });
+    contextMenu.show(e);
+  };
 
   const handleEditBookmark = (pageId: string, bookmark: Bookmark) => {
     setEditingBookmark({ pageId, bookmark });
     setBookmarkName(bookmark.name);
     setBookmarkNote(bookmark.note || '');
-    setContextMenuVisible(false);
   };
 
   const handleUpdateBookmark = () => {
@@ -81,19 +88,20 @@ export default function BookmarkPanel({
     setBookmarkNote('');
   };
 
-  const getContextMenuItems = (pageId: string, bookmark: Bookmark): MenuProps['items'] => [
+  const bookmarkMenuItems: ContextMenuItem[] = [
     {
       key: 'edit',
       label: '编辑',
       icon: <EditOutlined />,
-      onClick: () => handleEditBookmark(pageId, bookmark)
+      onClick: () => contextMenuBookmark && handleEditBookmark(contextMenuBookmark.pageId, contextMenuBookmark.bookmark)
     },
+    { key: 'divider', label: '', divider: true },
     {
       key: 'delete',
       label: '删除',
       icon: <DeleteOutlined />,
       danger: true,
-      onClick: () => onDeleteBookmark(pageId, bookmark.id)
+      onClick: () => contextMenuBookmark && onDeleteBookmark(contextMenuBookmark.pageId, contextMenuBookmark.bookmark.id)
     }
   ];
 
@@ -218,62 +226,41 @@ export default function BookmarkPanel({
                   size="small"
                   dataSource={page.bookmarks || []}
                   renderItem={(bookmark) => (
-                    <Dropdown
-                      menu={{ items: getContextMenuItems(page.id, bookmark) }}
-                      trigger={['contextMenu']}
+                    <List.Item
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        borderBottom: 'none',
+                        transition: 'background 0.3s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f5f5f5';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                      onContextMenu={(e) => handleBookmarkContextMenu(e, page.id, bookmark)}
+                      actions={[
+                        <Button
+                          key="edit"
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditBookmark(page.id, bookmark);
+                          }}
+                        />
+                      ]}
+                      onDoubleClick={() => {
+                        if (currentPageId !== page.id) {
+                          onSelectPage(page.id);
+                        }
+                        setTimeout(() => {
+                          onJumpToBookmark(page.id, bookmark.position, bookmark.length);
+                        }, 100);
+                      }}
                     >
-                      <List.Item
-                        style={{
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          borderBottom: 'none',
-                          transition: 'background 0.3s'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#f5f5f5';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
-                        actions={[
-                          <Button
-                            key="edit"
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditBookmark(page.id, bookmark);
-                            }}
-                          />,
-                          <Popconfirm
-                            key="delete"
-                            title="确定删除此书签吗？"
-                            onConfirm={(e) => {
-                              e?.stopPropagation();
-                              onDeleteBookmark(page.id, bookmark.id);
-                            }}
-                            okText="确定"
-                            cancelText="取消"
-                          >
-                            <Button
-                              type="text"
-                              danger
-                              size="small"
-                              icon={<DeleteOutlined />}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </Popconfirm>
-                        ]}
-                        onDoubleClick={() => {
-                          if (currentPageId !== page.id) {
-                            onSelectPage(page.id);
-                          }
-                          setTimeout(() => {
-                            onJumpToBookmark(page.id, bookmark.position, bookmark.length);
-                          }, 100);
-                        }}
-                      >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           <BookOutlined style={{ color: '#fa8c16', fontSize: 12, flexShrink: 0 }} />
@@ -303,7 +290,6 @@ export default function BookmarkPanel({
                         </Text>
                       </div>
                     </List.Item>
-                    </Dropdown>
                   )}
                 />
               </Panel>
@@ -311,6 +297,14 @@ export default function BookmarkPanel({
           </Collapse>
         )}
       </div>
+
+      <ContextMenu
+        visible={contextMenu.visible}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        items={bookmarkMenuItems}
+        onClose={contextMenu.hide}
+      />
     </>
   );
 }

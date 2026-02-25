@@ -1,6 +1,9 @@
-import { Button, List, Tag, Popconfirm, Typography, Space, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, BookOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Button, List, Tag, Typography, Space, Tooltip, message } from 'antd';
+import { PlusOutlined, DeleteOutlined, BookOutlined, EditOutlined, CopyOutlined, ExportOutlined } from '@ant-design/icons';
 import { Page } from '../types';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useContextMenu } from '../hooks/useContextMenu';
 
 const { Text } = Typography;
 
@@ -10,11 +13,71 @@ interface PagesPanelProps {
   onSelectPage: (id: string) => void;
   onAddPage: () => void;
   onDeletePage: (id: string) => void;
+  onDuplicatePage?: (id: string) => void;
+  onRenamePage?: (id: string) => void;
 }
 
 export default function PagesPanel({
-  pages, currentPageId, onSelectPage, onAddPage, onDeletePage
+  pages, currentPageId, onSelectPage, onAddPage, onDeletePage, onDuplicatePage, onRenamePage
 }: PagesPanelProps) {
+  const contextMenu = useContextMenu();
+  const [contextPage, setContextPage] = useState<Page | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent, page: Page) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextPage(page);
+    contextMenu.show(e);
+  };
+
+  const menuItems: ContextMenuItem[] = [
+    {
+      key: 'open',
+      label: '打开',
+      icon: <BookOutlined />,
+      onClick: () => contextPage && onSelectPage(contextPage.id)
+    },
+    {
+      key: 'rename',
+      label: '重命名',
+      icon: <EditOutlined />,
+      onClick: () => {
+        if (contextPage && onRenamePage) {
+          onRenamePage(contextPage.id);
+        } else {
+          message.info('请在编辑器中修改标题');
+        }
+      }
+    },
+    {
+      key: 'duplicate',
+      label: '复制页面',
+      icon: <CopyOutlined />,
+      onClick: () => {
+        if (contextPage && onDuplicatePage) {
+          onDuplicatePage(contextPage.id);
+        } else {
+          message.info('暂不支持复制页面');
+        }
+      }
+    },
+    { key: 'divider1', label: '', divider: true },
+    {
+      key: 'export',
+      label: '导出',
+      icon: <ExportOutlined />,
+      onClick: () => message.info('导出功能开发中')
+    },
+    { key: 'divider2', label: '', divider: true },
+    {
+      key: 'delete',
+      label: '删除',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => contextPage && onDeletePage(contextPage.id)
+    }
+  ];
+
   return (
     <div style={{ 
       height: '100%',
@@ -40,6 +103,7 @@ export default function PagesPanel({
             <List.Item
               key={page.id}
               onClick={() => onSelectPage(page.id)}
+              onContextMenu={(e) => handleContextMenu(e, page)}
               style={{
                 cursor: 'pointer',
                 padding: '12px',
@@ -72,23 +136,6 @@ export default function PagesPanel({
                         </Tag>
                       </Tooltip>
                     )}
-                    <Popconfirm
-                      title="确定删除这个页面吗？"
-                      onConfirm={(e) => {
-                        e?.stopPropagation();
-                        onDeletePage(page.id);
-                      }}
-                      okText="确定"
-                      cancelText="取消"
-                    >
-                      <Button
-                        type="text"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </Popconfirm>
                   </Space>
                 </div>
                 
@@ -128,6 +175,14 @@ export default function PagesPanel({
               </div>
             </List.Item>
           )}
+        />
+
+        <ContextMenu
+          visible={contextMenu.visible}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={menuItems}
+          onClose={contextMenu.hide}
         />
     </div>
   );

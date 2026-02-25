@@ -32,6 +32,7 @@ export interface Page {
   longCodeBlocks?: Record<string, { content: string; language: string; title: string }>; // 长代码块存储
   markerPosition?: number;
   scrollPosition?: number;
+  headerCollapsed?: boolean; // 标题栏折叠状态
   createdAt: number;
   updatedAt: number;
   

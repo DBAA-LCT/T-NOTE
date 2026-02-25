@@ -1,4 +1,5 @@
-import { Layout, Button, Input, List, Tag, Space, Popconfirm, Typography, Divider } from 'antd';
+import { useState } from 'react';
+import { Layout, Button, Input, List, Tag, Space, Typography, Divider } from 'antd';
 import { 
   PlusOutlined, 
   SaveOutlined, 
@@ -6,9 +7,13 @@ import {
   DeleteOutlined,
   FileTextOutlined,
   SearchOutlined,
-  SaveFilled
+  SaveFilled,
+  EditOutlined,
+  CopyOutlined
 } from '@ant-design/icons';
 import { Page } from '../types';
+import ContextMenu, { ContextMenuItem } from './ContextMenu';
+import { useContextMenu } from '../hooks/useContextMenu';
 
 const { Sider } = Layout;
 const { Search } = Input;
@@ -33,6 +38,39 @@ export default function Sidebar({
   pages, currentPageId, onSelectPage, onAddPage, onDeletePage,
   onSave, onSaveAs, onOpen, searchTag, onSearchTagChange, noteName, onUpdateNoteName
 }: SidebarProps) {
+  const contextMenu = useContextMenu();
+  const [contextPage, setContextPage] = useState<Page | null>(null);
+
+  const handlePageContextMenu = (e: React.MouseEvent, page: Page) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextPage(page);
+    contextMenu.show(e);
+  };
+
+  const pageMenuItems: ContextMenuItem[] = [
+    {
+      key: 'open',
+      label: '打开',
+      icon: <FileTextOutlined />,
+      onClick: () => contextPage && onSelectPage(contextPage.id)
+    },
+    {
+      key: 'edit',
+      label: '编辑标题',
+      icon: <EditOutlined />,
+      onClick: () => contextPage && onSelectPage(contextPage.id)
+    },
+    { key: 'divider', label: '', divider: true },
+    {
+      key: 'delete',
+      label: '删除',
+      icon: <DeleteOutlined />,
+      danger: true,
+      onClick: () => contextPage && onDeletePage(contextPage.id)
+    }
+  ];
+
   return (
     <Sider 
       width={280} 
@@ -96,6 +134,7 @@ export default function Sidebar({
             <List.Item
               key={page.id}
               onClick={() => onSelectPage(page.id)}
+              onContextMenu={(e) => handlePageContextMenu(e, page)}
               style={{
                 cursor: 'pointer',
                 padding: '12px',
@@ -116,23 +155,6 @@ export default function Sidebar({
                   <Text strong ellipsis style={{ flex: 1 }}>
                     {page.title}
                   </Text>
-                  <Popconfirm
-                    title="确定删除这个页面吗？"
-                    onConfirm={(e) => {
-                      e?.stopPropagation();
-                      onDeletePage(page.id);
-                    }}
-                    okText="确定"
-                    cancelText="取消"
-                  >
-                    <Button
-                      type="text"
-                      danger
-                      size="small"
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </Popconfirm>
                 </div>
                 
                 {page.tags.length > 0 && (
@@ -151,6 +173,14 @@ export default function Sidebar({
               </div>
             </List.Item>
           )}
+        />
+
+        <ContextMenu
+          visible={contextMenu.visible}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={pageMenuItems}
+          onClose={contextMenu.hide}
         />
       </div>
     </Sider>

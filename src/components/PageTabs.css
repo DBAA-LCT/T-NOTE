@@ -180,3 +180,25 @@
   background: #d6e9ff;
   border-color: #1677ff;
 }
+
+
+/* 折叠标题栏按钮 */
+.page-tab-collapse-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.page-tab-collapse-btn:hover {
+  background: #e8e8e8;
+  color: #666;
+}
