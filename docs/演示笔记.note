@@ -1,0 +1,146 @@
+{
+  "id": "demo-note-2026-showcase",
+  "name": "T-Note 功能演示",
+  "pages": [
+    {
+      "id": "page-welcome",
+      "title": "欢迎使用 T-Note",
+      "content": "<h1>欢迎使用 T-Note 📝</h1><p><br></p><p>T-Note 是一款功能强大的<strong>本地富文本笔记编辑器</strong>，专为追求高效记录和知识管理的用户设计。</p><p><br></p><h2>✨ 核心特性</h2><p><br></p><ul><li><strong>多页面管理</strong> - 在单个笔记中创建多个独立页面</li><li><strong>智能标签系统</strong> - 为页面添加彩色标签，快速分类</li><li><strong>分屏编辑</strong> - 左右分屏，同时查看多个页面</li><li><strong>云同步</strong> - 支持 OneDrive 和百度网盘</li><li><strong>TODO 管理</strong> - 内置待办事项管理功能</li></ul><p><br></p><h2>🚀 快速开始</h2><p><br></p><p>点击左侧的<em>页面列表</em>，浏览本演示笔记的各个功能页面。</p><p><br></p><blockquote>💡 提示：使用 <code>Ctrl+S</code> 随时保存您的笔记</blockquote>",
+      "tags": [
+        "入门",
+        "指南"
+      ],
+      "bookmarks": [
+        {
+          "id": "bm-features",
+          "position": 180,
+          "note": "核心特性列表",
+          "createdAt": 1740000000000
+        }
+      ],
+      "createdAt": 1740000000000,
+      "updatedAt": 1772010355443,
+      "headerCollapsed": true
+    },
+    {
+      "id": "page-editor-demo",
+      "title": "富文本编辑演示",
+      "content": "<h1>富文本编辑功能 ✍️</h1><p><br></p><p>T-Note 基于 <strong>Quill 2.0</strong> 编辑器，提供丰富的文本编辑能力。</p><p><br></p><h2>文本样式</h2><p><br></p><p>这是<strong>粗体文本</strong>，这是<em>斜体文本</em>，这是<u>下划线文本</u>，这是<s>删除线文本</s>。</p><p><br></p><p>支持<span style=\"color: rgb(230, 0, 0);\">红色</span>、<span style=\"color: rgb(0, 138, 0);\">绿色</span>、<span style=\"color: rgb(0, 102, 204);\">蓝色</span>等多种<span style=\"background-color: rgb(255, 255, 0);\">文字颜色和背景色</span>。</p><p><br></p><h2>列表展示</h2><p><br></p><p><strong>无序列表：</strong></p><ul><li>第一项内容</li><li>第二项内容</li><li>第三项内容</li></ul><p><br></p><p><strong>有序列表：</strong></p><ol><li>步骤一：打开应用</li><li>步骤二：创建笔记</li><li>步骤三：开始记录</li></ol><p><br></p><h2>代码块</h2><p><br></p><pre class=\"ql-syntax\" spellcheck=\"false\">// JavaScript 示例代码\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconsole.log(greet('T-Note'));\n</pre><p><br></p><h2>引用</h2><p><br></p><blockquote>知识就是力量，而好的笔记工具能让知识的积累事半功倍。</blockquote>",
+      "tags": [
+        "编辑器",
+        "功能"
+      ],
+      "bookmarks": [],
+      "createdAt": 1740000000000,
+      "updatedAt": 1772011464252,
+      "headerCollapsed": true
+    },
+    {
+      "id": "page-work-plan",
+      "title": "2026年工作计划",
+      "content": "<h1>2026年工作计划 📅</h1><p><br></p><h2>Q1 目标（1-3月）</h2><p><br></p><ul><li>完成项目架构设计</li><li>搭建开发环境</li><li>完成核心模块开发</li></ul><p><br></p><h2>Q2 目标（4-6月）</h2><p><br></p><ul><li>功能测试与优化</li><li>用户体验改进</li><li>文档编写</li></ul><p><br></p><h2>Q3 目标（7-9月）</h2><p><br></p><ul><li>Beta 版本发布</li><li>收集用户反馈</li><li>迭代优化</li></ul><p><br></p><h2>Q4 目标（10-12月）</h2><p><br></p><ul><li>正式版本发布</li><li>市场推广</li><li>持续维护更新</li></ul><p><br></p><blockquote>📌 记得定期回顾和更新计划进度</blockquote>",
+      "tags": [
+        "工作",
+        "计划",
+        "2026"
+      ],
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    },
+    {
+      "id": "page-meeting-notes",
+      "title": "项目会议记录",
+      "content": "<h1>项目会议记录 📋</h1><p><br></p><h2>会议信息</h2><p><br></p><p><strong>日期：</strong>2026年2月25日</p><p><strong>参会人员：</strong>产品组、开发组、设计组</p><p><strong>会议主题：</strong>Q1 进度回顾与 Q2 规划</p><p><br></p><h2>会议要点</h2><p><br></p><h3>1. Q1 进度回顾</h3><p><br></p><ul><li>✅ 核心功能开发完成 90%</li><li>✅ UI 设计稿已全部交付</li><li>⏳ 测试用例编写中（完成 70%）</li></ul><p><br></p><h3>2. 问题与挑战</h3><p><br></p><ul><li>性能优化需要更多时间</li><li>部分第三方 API 接口变更</li></ul><p><br></p><h3>3. Q2 重点任务</h3><p><br></p><ol><li>完成剩余功能开发</li><li>全面测试与 Bug 修复</li><li>准备 Beta 版本发布</li></ol><p><br></p><h2>行动项</h2><p><br></p><p>| 负责人 | 任务 | 截止日期 |</p><p>|--------|------|----------|</p><p>| 张三 | 性能优化 | 3月15日 |</p><p>| 李四 | API 适配 | 3月10日 |</p><p>| 王五 | 测试用例 | 3月20日 |</p>",
+      "tags": [
+        "会议",
+        "工作"
+      ],
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    },
+    {
+      "id": "page-learning-notes",
+      "title": "技术学习笔记",
+      "content": "<h1>技术学习笔记 📚</h1><p><br></p><h2>React 18 新特性</h2><p><br></p><h3>Concurrent Rendering</h3><p><br></p><p>React 18 引入了并发渲染，允许 React 同时准备多个版本的 UI。</p><p><br></p><pre class=\"ql-syntax\" spellcheck=\"false\">// 使用 startTransition 标记非紧急更新\nimport { startTransition } from 'react';\n\nstartTransition(() =&gt; {\n  setSearchQuery(input);\n});\n</pre><p><br></p><h3>Automatic Batching</h3><p><br></p><p>React 18 自动批处理多个状态更新，减少不必要的重渲染。</p><p><br></p><h2>TypeScript 技巧</h2><p><br></p><h3>类型推断</h3><p><br></p><pre class=\"ql-syntax\" spellcheck=\"false\">// 使用 as const 获得更精确的类型\nconst config = {\n  theme: 'dark',\n  language: 'zh-CN'\n} as const;\n\n// config.theme 的类型是 'dark' 而不是 string\n</pre><p><br></p><h3>实用工具类型</h3><p><br></p><pre class=\"ql-syntax\" spellcheck=\"false\">// Partial - 使所有属性可选\ntype PartialUser = Partial&lt;User&gt;;\n\n// Pick - 选择部分属性\ntype UserName = Pick&lt;User, 'firstName' | 'lastName'&gt;;\n\n// Omit - 排除部分属性\ntype UserWithoutId = Omit&lt;User, 'id'&gt;;\n</pre><p><br></p><blockquote>💡 持续学习，保持进步！</blockquote>",
+      "tags": [
+        "学习",
+        "技术",
+        "React",
+        "TypeScript"
+      ],
+      "bookmarks": [],
+      "createdAt": 1740000000000,
+      "updatedAt": 1772011284862,
+      "headerCollapsed": true
+    }
+  ],
+  "createdAt": 1740000000000,
+  "updatedAt": 1772011464252,
+  "todos": [
+    {
+      "id": "todo-1",
+      "title": "完成产品演示视频录制",
+      "description": "录制 T-Note 功能演示视频，展示核心功能",
+      "completed": false,
+      "priority": "high",
+      "category": "产品",
+      "dueDate": 1740528000000,
+      "linkedPageId": "page-welcome",
+      "createdAt": 1740000000000,
+      "updatedAt": 1772011308602
+    },
+    {
+      "id": "todo-2",
+      "title": "整理技术文档",
+      "description": "更新 README 和使用手册",
+      "completed": true,
+      "priority": "medium",
+      "category": "文档",
+      "linkedPageId": "page-learning-notes",
+      "createdAt": 1740000000000,
+      "updatedAt": 1772011337092
+    },
+    {
+      "id": "todo-3",
+      "title": "优化编辑器性能",
+      "description": "减少大文档的渲染时间",
+      "completed": false,
+      "priority": "high",
+      "category": "开发",
+      "dueDate": 1741132800000,
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    },
+    {
+      "id": "todo-4",
+      "title": "设计新版图标",
+      "completed": true,
+      "priority": "low",
+      "category": "设计",
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    },
+    {
+      "id": "todo-5",
+      "title": "准备发布公告",
+      "description": "撰写新版本发布说明",
+      "completed": false,
+      "priority": "medium",
+      "category": "产品",
+      "dueDate": 1741737600000,
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    },
+    {
+      "id": "todo-6",
+      "title": "代码审查",
+      "description": "Review 本周提交的 PR",
+      "completed": false,
+      "priority": "medium",
+      "category": "开发",
+      "createdAt": 1740000000000,
+      "updatedAt": 1740000000000
+    }
+  ],
+  "trash": []
+}
